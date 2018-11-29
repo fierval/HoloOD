@@ -67,7 +67,12 @@ public class ProjectionExample : MonoBehaviour {
 
     async void LoadModel()
     {
-        await ObjectDetector.LoadModel();
+#if UNITY_WSA && !UNITY_EDITOR
+        if (!await ObjectDetector.LoadModel() || ObjectDetector.model == null)
+        {
+            throw new ApplicationException("could not load model");
+        }
+#endif
     }
 
     // This coroutine will toggle the video on/off

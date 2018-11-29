@@ -18,19 +18,20 @@ using Windows.AI.MachineLearning;
 
 public static class ObjectDetector
 {
+#if UNITY_WSA && !UNITY_EDITOR
+
     public static IList<YoloBoundingBox> Predictions { get; private set; }
     public static float DetectionThreshold { get; set; }
     public static int CameraWidth { get; set; }
     public static int CameraHeight { get; set; }
-
+    
 
     // Model instantiation goes here
-#if UNITY_WSA && !UNITY_EDITOR
 #if SDK_1809
-    static TinyYoloV2O12Model model;
+    public static TinyYoloV2O12Model model;
     static readonly Uri modelFile = new Uri("ms-appx:///Data/StreamingAssets/Tiny-YOLOv2O12.onnx");
 #else
-    static TinyYoloV2O1Model model;
+    public static TinyYoloV2O1Model model;
     static readonly Uri modelFile = new Uri("ms-appx:///Data/StreamingAssets/Tiny-YOLOv2.onnx");
 #endif
     static YoloWinMlParser parser = new YoloWinMlParser();
@@ -38,7 +39,6 @@ public static class ObjectDetector
     static ObjectDetector()
     {
         CameraWidth = CameraHeight = 0;
-        LoadModel().Wait();
     }
 
     public static async Task<bool> LoadModel()
@@ -71,45 +71,7 @@ public static class ObjectDetector
         return true;
     }
 
-    /// <summary>
-    /// Create VideoFrame used by Windows.AI as intput to the model
-    /// </summary>
-    /// <param name="fileName">File name</param>
-    /// <param name="shouldResize">Should we resize it (default: false)</param>
-    /// <param name="width">Pixel width of the target (default: 413)</param>
-    /// <param name="height">Pixel height of the target (default: 413)</param>
-    /// <returns></returns>
-    public static async Task<VideoFrame> CreateFromJpegFile(string fileName, bool shouldResize = false, uint width = 413, uint height = 413)
-    {
-        SoftwareBitmap softwareBitmap;
-        StorageFile imageFile = await StorageFile.GetFileFromPathAsync(fileName);
-        var transform = new BitmapTransform() { ScaledWidth = width, ScaledHeight = height, InterpolationMode = BitmapInterpolationMode.Cubic };
 
-        using (IRandomAccessStream stream = await imageFile.OpenReadAsync())
-        {
-            BitmapDecoder decoder = await BitmapDecoder.CreateAsync(stream);
-            if (!shouldResize)
-            {
-                softwareBitmap = await decoder.GetSoftwareBitmapAsync();
-            }
-            else
-            {
-                var pixelData = await decoder.GetPixelDataAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied, transform, ExifOrientationMode.RespectExifOrientation, ColorManagementMode.ColorManageToSRgb);
-                var pixels = pixelData.DetachPixelData();
-
-
-                var wBitmap = new WriteableBitmap((int)decoder.PixelWidth, (int)decoder.PixelHeight);
-                await wBitmap.SetSourceAsync(stream);
-                softwareBitmap = SoftwareBitmap.CreateCopyFromBuffer(wBitmap.PixelBuffer, BitmapPixelFormat.Bgra8, (int)width, (int)height, BitmapAlphaMode.Premultiplied);
-            }
-        }
-
-        return VideoFrame.CreateWithSoftwareBitmap(softwareBitmap);
-    }
-#endif
-
-
-#if UNITY_WSA && !UNITY_EDITOR
     public static async void AnalyzeImage(VideoFrame videoFrame)
     {
         // This appears to be the right way to handle background tasks.
