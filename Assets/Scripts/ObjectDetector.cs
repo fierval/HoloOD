@@ -16,26 +16,32 @@ using Windows.Storage;
 using Windows.AI.MachineLearning;
 #endif
 
-public class ObjectDetector
+public static class ObjectDetector
 {
+    public static IList<YoloBoundingBox> Predictions { get; private set; }
+    public static float DetectionThreshold { get; set; }
+    public static int CameraWidth { get; set; }
+    public static int CameraHeight { get; set; }
+
+
     // Model instantiation goes here
 #if UNITY_WSA && !UNITY_EDITOR
 #if SDK_1809
-    TinyYoloV2O12Model model;
-    readonly Uri modelFile = new Uri("ms-appx:///Data/StreamingAssets/Tiny-YOLOv2O12.onnx");
+    static TinyYoloV2O12Model model;
+    static readonly Uri modelFile = new Uri("ms-appx:///Data/StreamingAssets/Tiny-YOLOv2O12.onnx");
 #else
-    TinyYoloV2O1Model model;
-    readonly Uri modelFile = new Uri("ms-appx:///Data/StreamingAssets/Tiny-YOLOv2.onnx");
+    static TinyYoloV2O1Model model;
+    static readonly Uri modelFile = new Uri("ms-appx:///Data/StreamingAssets/Tiny-YOLOv2.onnx");
 #endif
-    YoloWinMlParser parser = new YoloWinMlParser();
+    static YoloWinMlParser parser = new YoloWinMlParser();
 
-    public ObjectDetector()
+    static ObjectDetector()
     {
-        
         CameraWidth = CameraHeight = 0;
+        LoadModel().Wait();
     }
 
-    public async Task<bool> LoadModel()
+    public static async Task<bool> LoadModel()
     {
         try
         {
@@ -103,14 +109,8 @@ public class ObjectDetector
 #endif
 
 
-    public IList<YoloBoundingBox> Predictions { get; private set; }
-    public float DetectionThreshold { get; set; }
-    public int CameraWidth { get; set; }
-    public int CameraHeight { get; set; }
-
-
 #if UNITY_WSA && !UNITY_EDITOR
-    public async void AnalyzeImage(VideoFrame videoFrame)
+    public static async void AnalyzeImage(VideoFrame videoFrame)
     {
         // This appears to be the right way to handle background tasks.
         // We return to the main thread as fast as we can, and wait for the next call to the Update()

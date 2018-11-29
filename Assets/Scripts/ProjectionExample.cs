@@ -62,6 +62,12 @@ public class ProjectionExample : MonoBehaviour {
 
         // Set the laser
         _laser = GetComponent<RaycastLaser>();
+        LoadModel();
+    }
+
+    async void LoadModel()
+    {
+        await ObjectDetector.LoadModel();
     }
 
     // This coroutine will toggle the video on/off
