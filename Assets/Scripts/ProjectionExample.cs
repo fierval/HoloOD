@@ -1,16 +1,25 @@
 ﻿using UnityEngine;
+using UnityEngine.WSA;
 using HoloLensCameraStream;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Collections;
+using System.Reflection;
+using Application = UnityEngine.WSA.Application;
 
+#if UNITY_WSA && !UNITY_EDITOR
+using Windows.Media;
+using Windows.Graphics.Imaging;
+#endif
 
 /// <summary>
 /// In this example, we back-project to the 3D world 5 pixels, which are the principal point and the image corners,
 /// using the extrinsic parameters and projection matrices.
 /// Whereas the app is running, if you tap on the image, this set of points is reprojected into the world.
 /// </summary>
-public class ProjectionExample : MonoBehaviour {
+public class ProjectionExample : MonoBehaviour
+{
 
     // "Injected materials"
     public Material _topLeftMaterial;
@@ -31,6 +40,8 @@ public class ProjectionExample : MonoBehaviour {
     private Renderer _pictureRenderer;
     private Texture2D _pictureTexture;
 
+    private PropertyInfo softwareBitmapInfo;
+
     private RaycastLaser _laser;
 
     // This struct store frame related data
@@ -47,9 +58,11 @@ public class ProjectionExample : MonoBehaviour {
         _gestureRecognizer.TappedEvent += (source, tapCount, headRay) => { Debug.Log("Tapped"); StartCoroutine(StopVideoMode()); };
         _gestureRecognizer.SetRecognizableGestures(UnityEngine.XR.WSA.Input.GestureSettings.Tap);
         _gestureRecognizer.StartCapturingGestures();
+
+        softwareBitmapInfo = typeof(VideoCaptureSample).GetTypeInfo().DeclaredProperties.Where(x => x.Name == "bitmap").Single();
     }
 
-    void Start() 
+    void Start()
     {
         //Fetch a pointer to Unity's spatial coordinate system if you need pixel mapping
         _spatialCoordinateSystemPtr = UnityEngine.XR.WSA.WorldManager.GetNativeISpatialCoordinateSystemPtr();
@@ -62,18 +75,21 @@ public class ProjectionExample : MonoBehaviour {
 
         // Set the laser
         _laser = GetComponent<RaycastLaser>();
+#if UNITY_WSA && !UNITY_EDITOR
         LoadModel();
+#endif
+
     }
 
+#if UNITY_WSA && !UNITY_EDITOR
     async void LoadModel()
     {
-#if UNITY_WSA && !UNITY_EDITOR
         if (!await ObjectDetector.LoadModel() || ObjectDetector.model == null)
         {
             throw new ApplicationException("could not load model");
         }
-#endif
     }
+#endif
 
     // This coroutine will toggle the video on/off
     private IEnumerator StopVideoMode()
@@ -81,13 +97,13 @@ public class ProjectionExample : MonoBehaviour {
         yield return new WaitForSeconds(0.65f);
         stopVideo = !stopVideo;
 
-        if(!stopVideo)
+        if (!stopVideo)
             OnVideoCaptureCreated(_videoCapture);
     }
 
     private void OnDestroy()
     {
-        if(_videoCapture == null)
+        if (_videoCapture == null)
             return;
 
         _videoCapture.FrameSampleAcquired += null;
@@ -96,7 +112,7 @@ public class ProjectionExample : MonoBehaviour {
 
     private void OnVideoCaptureCreated(VideoCapture v)
     {
-        if(v == null)
+        if (v == null)
         {
             Debug.LogError("No VideoCapture found");
             return;
@@ -118,14 +134,17 @@ public class ProjectionExample : MonoBehaviour {
         cameraParams.frameRate = Mathf.RoundToInt(frameRate);
         cameraParams.pixelFormat = CapturePixelFormat.BGRA32;
 
-        UnityEngine.WSA.Application.InvokeOnAppThread(() => { _pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false); }, false);
+        Application.InvokeOnAppThread(() => { _pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false); }, false);
+
+        ObjectDetector.CameraHeight = _resolution.height;
+        ObjectDetector.CameraWidth = _resolution.width;
 
         _videoCapture.StartVideoModeAsync(cameraParams, OnVideoModeStarted);
     }
 
     private void OnVideoModeStarted(VideoCaptureResult result)
     {
-        if(result.success == false)
+        if (result.success == false)
         {
             Debug.LogWarning("Could not start video mode.");
             return;
@@ -134,10 +153,14 @@ public class ProjectionExample : MonoBehaviour {
         Debug.Log("Video capture started.");
     }
 
+#if UNITY_WSA && !UNITY_EDITOR
+    private async void OnFrameSampleAcquired(VideoCaptureSample sample)
+#else
     private void OnFrameSampleAcquired(VideoCaptureSample sample)
+#endif
     {
         // Allocate byteBuffer
-        if(_latestImageBytes == null || _latestImageBytes.Length < sample.dataLength)
+        if (_latestImageBytes == null || _latestImageBytes.Length < sample.dataLength)
             _latestImageBytes = new byte[sample.dataLength];
 
         // Fill frame struct 
@@ -145,8 +168,16 @@ public class ProjectionExample : MonoBehaviour {
         sample.CopyRawImageDataIntoBuffer(_latestImageBytes);
         s.data = _latestImageBytes;
 
+#if UNITY_WSA && !UNITY_EDITOR
+        VideoFrame videoFrame = VideoFrame.CreateWithSoftwareBitmap((SoftwareBitmap) softwareBitmapInfo.GetValue(sample));
+        var predictions = await ObjectDetector.AnalyzeImage(videoFrame);
+        if (predictions == null)
+        {
+            return;
+        }
+#endif
         // Get the cameraToWorldMatrix and projectionMatrix
-        if(!sample.TryGetCameraToWorldMatrix(out s.camera2WorldMatrix) || !sample.TryGetProjectionMatrix(out s.projectionMatrix))
+        if (!sample.TryGetCameraToWorldMatrix(out s.camera2WorldMatrix) || !sample.TryGetProjectionMatrix(out s.projectionMatrix))
             return;
 
         sample.Dispose();
@@ -154,7 +185,7 @@ public class ProjectionExample : MonoBehaviour {
         Matrix4x4 camera2WorldMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(s.camera2WorldMatrix);
         Matrix4x4 projectionMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(s.projectionMatrix);
 
-        UnityEngine.WSA.Application.InvokeOnAppThread(() =>
+        Application.InvokeOnAppThread(() =>
         {
             // Upload bytes to texture
             _pictureTexture.LoadRawTextureData(s.data);
@@ -177,7 +208,7 @@ public class ProjectionExample : MonoBehaviour {
         }, false);
 
         // Stop the video and reproject the 5 pixels
-        if(stopVideo)
+        if (stopVideo)
         {
             _videoCapture.StopVideoModeAsync(onVideoModeStopped);
 
@@ -185,11 +216,11 @@ public class ProjectionExample : MonoBehaviour {
             Vector3 imageCenterDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width / 2, _resolution.height / 2));
             Vector3 imageTopLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0, 0));
             Vector3 imageTopRightDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width, 0));
-            Vector3 imageBotLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0 , _resolution.height));
+            Vector3 imageBotLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0, _resolution.height));
             Vector3 imageBotRightDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width, _resolution.height));
 
-            UnityEngine.WSA.Application.InvokeOnAppThread(() => 
-            { 
+            Application.InvokeOnAppThread(() =>
+            {
                 // Paint the rays on the 3d world
                 _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageCenterDirection, 10f, _centerMaterial);
                 _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageTopLeftDirection, 10f, _topLeftMaterial);

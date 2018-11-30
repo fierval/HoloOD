@@ -18,12 +18,13 @@ using Windows.AI.MachineLearning;
 
 public static class ObjectDetector
 {
-#if UNITY_WSA && !UNITY_EDITOR
-
-    public static IList<YoloBoundingBox> Predictions { get; private set; }
     public static float DetectionThreshold { get; set; }
     public static int CameraWidth { get; set; }
     public static int CameraHeight { get; set; }
+
+#if UNITY_WSA && !UNITY_EDITOR
+
+    public static IList<YoloBoundingBox> Predictions { get; private set; }
     
 
     // Model instantiation goes here
@@ -72,7 +73,7 @@ public static class ObjectDetector
     }
 
 
-    public static async void AnalyzeImage(VideoFrame videoFrame)
+    public static async Task<IList<YoloBoundingBox>> AnalyzeImage(VideoFrame videoFrame)
     {
         // This appears to be the right way to handle background tasks.
         // We return to the main thread as fast as we can, and wait for the next call to the Update()
@@ -95,7 +96,7 @@ public static class ObjectDetector
         }
 
         boxes = parser.NonMaxSuppress(boxes);
-        Predictions = boxes.Select(b => new YoloBoundingBox()
+        return boxes.Select(b => new YoloBoundingBox()
         {
             X = b.X / CameraWidth,
             Y = b.Y / CameraHeight,
