@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.44657844, g: 0.49641222, b: 0.57481694, a: 1}
+  m_IndirectSpecularColor: {r: 0.44657898, g: 0.4964133, b: 0.5748178, a: 1}
 --- !u!157 &3
 LightmapSettings:
   m_ObjectHideFlags: 0
@@ -220,11 +220,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 1345120982}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 566f7e991ea7dcc4b93f35e12ab2c228, type: 3}
+  m_Script: {fileID: 11500000, guid: 97f4f20e19e03ea4ca9bfb8c211c76ae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _lineWidthMultiplier: 0.01
-  _laserMaterial: {fileID: 2100000, guid: 84d929c2f6a145a469668ace5eb159b0, type: 2}
+  _topLeftMaterial: {fileID: 2100000, guid: 51b5984f13d5f6d42a8c1225e88ad130, type: 2}
+  _topRightMaterial: {fileID: 2100000, guid: 536e577ffbc18cb418042f382d547795, type: 2}
+  _botLeftMaterial: {fileID: 2100000, guid: 0a67b708600e3c241bc22323cad9f843, type: 2}
+  _botRightMaterial: {fileID: 2100000, guid: a505d9aa5160e0e4db8c74d9a916e069, type: 2}
+  _centerMaterial: {fileID: 2100000, guid: facf14d3152ea6b4381049fec17f3cea, type: 2}
 --- !u!114 &1345120984
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -233,14 +236,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 1345120982}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6341b41f972a46a428024e7bb7f598c4, type: 3}
+  m_Script: {fileID: 11500000, guid: e6167489da531a44fb6c8e6a13559d6b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _topLeftMaterial: {fileID: 2100000, guid: 293884128e9832944acdb79c3b98afb7, type: 2}
-  _topRightMaterial: {fileID: 2100000, guid: d8b25fde0c5a90e4c9a2c372f5c9b702, type: 2}
-  _botLeftMaterial: {fileID: 2100000, guid: bd0d353f01ed2dd45b9035669f47eb9a, type: 2}
-  _botRightMaterial: {fileID: 2100000, guid: 84d929c2f6a145a469668ace5eb159b0, type: 2}
-  _centerMaterial: {fileID: 2100000, guid: aabac64d0de2f2148bc6ad2c45607e80, type: 2}
+  _lineWidthMultiplier: 0.05
+  _laserMaterial: {fileID: 2100000, guid: facf14d3152ea6b4381049fec17f3cea, type: 2}
 --- !u!114 &1345120985
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -249,7 +249,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1345120982}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8d7a303625e450b499551864fb15277d, type: 3}
+  m_Script: {fileID: 11500000, guid: 534f1a42ee99c6e4da3969a667f849b5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1 &1882314575
