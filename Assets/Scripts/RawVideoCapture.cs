@@ -2,14 +2,43 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
+using System.Collections.Generic;
 
 #if UNITY_WSA && !UNITY_EDITOR
+using Windows.Devices.Enumeration;
 using Windows.AI.MachineLearning;
 using Windows.Storage;
 using Windows.Media.Capture;
 using Windows.Media.MediaProperties;
 using Windows.Media.Capture.Frames;
+using Windows.Foundation;
+using Windows.Foundation.Collections;
 #endif
+
+public struct Resolution
+{
+    /// <summary>
+    /// The width property.
+    /// </summary>
+    public readonly int width;
+
+    /// <summary>
+    /// The height property.
+    /// </summary>
+    public readonly int height;
+
+    public Resolution(int width, int height)
+    {
+        this.width = width;
+        this.height = height;
+    }
+
+    public override string ToString()
+    {
+        return $"width={width}, height={height}";
+    }
+}
+
 
 public class RawVideoCapture : MonoBehaviour
 {
@@ -56,11 +85,45 @@ public class RawVideoCapture : MonoBehaviour
         ObjectDetector.DetectionThreshold = detectionThreshold;
     }
 
+    public IEnumerable<Resolution> GetSupportedResolutions()
+    {
+        List<Resolution> resolutions = new List<Resolution>();
+        var STREAM_TYPE = MediaStreamType.VideoPreview;
+        var allPropertySets = MediaCapture.VideoDeviceController.GetAvailableMediaStreamProperties(STREAM_TYPE).Select(x => x as VideoEncodingProperties); //Returns IEnumerable<VideoEncodingProperties>
+        foreach (var propertySet in allPropertySets)
+        {
+            resolutions.Add(new Resolution((int)propertySet.Width, (int)propertySet.Height));
+        }
+
+        return resolutions;
+    }
+
     public async void CreateMediaCapture()
     {
+        var devices = await DeviceInformation.FindAllAsync(DeviceClass.VideoCapture);
+        var deviceInformation = devices.FirstOrDefault();
+
         MediaCapture = new MediaCapture();
-        MediaCaptureInitializationSettings settings = new MediaCaptureInitializationSettings();
+
+        MediaCaptureInitializationSettings settings = new MediaCaptureInitializationSettings { VideoDeviceId = deviceInformation.Id };
         settings.StreamingCaptureMode = StreamingCaptureMode.Video;
+
+        IReadOnlyList<MediaCaptureVideoProfile> profiles = MediaCapture.FindAllVideoProfiles(deviceInformation.Id);
+
+        var match = (from profile in profiles
+                     from desc in profile.SupportedRecordMediaDescription
+                     select new { profile, desc }).OrderBy(pd => pd.desc.Width * pd.desc.Height).FirstOrDefault();
+
+        if (match != null)
+        {
+            settings.VideoProfile = match.profile;
+            settings.RecordMediaDescription = match.desc;
+        }
+        else
+        {
+            // Could not locate a WVGA 30FPS profile, use default video recording profile
+            settings.VideoProfile = profiles[0];
+        }
         await MediaCapture.InitializeAsync(settings);
 
         CreateFrameReader();
@@ -94,7 +157,7 @@ public class RawVideoCapture : MonoBehaviour
         var colorFrameSource = MediaCapture.FrameSources[colorSourceInfo.Id];
         var preferredFormat = colorFrameSource.SupportedFormats.Where(format =>
         {
-            return format.Subtype == MediaEncodingSubtypes.Argb32;
+            return format.Subtype == MediaEncodingSubtypes.Bgra8;
 
         }).FirstOrDefault();
 
@@ -108,7 +171,7 @@ public class RawVideoCapture : MonoBehaviour
     {
         Task.Run(async () =>
         {
-            for (;;)
+            for (; ; )
             {
                 var frameReference = sender.TryAcquireLatestFrame();
                 var videoFrame = frameReference?.VideoMediaFrame?.GetVideoFrame();
@@ -123,7 +186,7 @@ public class RawVideoCapture : MonoBehaviour
                     continue; //ignoring frame
                 }
 
-                
+
                 try
                 {
                     if (ObjectDetector.CameraWidth == 0)
@@ -138,7 +201,7 @@ public class RawVideoCapture : MonoBehaviour
                 }
                 catch
                 {
-                   //Log errors
+                    //Log errors
                 }
 
                 await Task.Delay(predictEvery);
