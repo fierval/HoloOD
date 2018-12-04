@@ -188,20 +188,20 @@ public class ProjectionExample : MonoBehaviour
 
             Application.InvokeOnAppThread(() =>
             {
-                    // Upload bytes to texture
-                    _pictureTexture.LoadRawTextureData(s.data);
+                // Upload bytes to texture
+                _pictureTexture.LoadRawTextureData(s.data);
                 _pictureTexture.wrapMode = TextureWrapMode.Clamp;
                 _pictureTexture.Apply();
 
-                    // Set material parameters
-                    _pictureRenderer.sharedMaterial.SetTexture("_MainTex", _pictureTexture);
+                // Set material parameters
+                _pictureRenderer.sharedMaterial.SetTexture("_MainTex", _pictureTexture);
                 _pictureRenderer.sharedMaterial.SetMatrix("_WorldToCameraMatrix", camera2WorldMatrix.inverse);
                 _pictureRenderer.sharedMaterial.SetMatrix("_CameraProjectionMatrix", projectionMatrix);
                 _pictureRenderer.sharedMaterial.SetFloat("_VignetteScale", 0f);
 
                 Vector3 inverseNormal = -camera2WorldMatrix.GetColumn(2);
-                    // Position the canvas object slightly in front of the real world web camera.
-                    Vector3 imagePosition = camera2WorldMatrix.GetColumn(3) - camera2WorldMatrix.GetColumn(2);
+                // Position the canvas object slightly in front of the real world web camera.
+                Vector3 imagePosition = camera2WorldMatrix.GetColumn(3) - camera2WorldMatrix.GetColumn(2);
 
                 _picture.transform.position = imagePosition;
                 _picture.transform.rotation = Quaternion.LookRotation(inverseNormal, camera2WorldMatrix.GetColumn(1));
@@ -245,8 +245,8 @@ public class ProjectionExample : MonoBehaviour
 
                 Application.InvokeOnAppThread(() =>
                 {
-                        // Paint the rays on the 3d world
-                        _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageCenterDirection, 10f, _centerMaterial);
+                    // Paint the rays on the 3d world
+                    _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageCenterDirection, 10f, _centerMaterial);
                     _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageTopLeftDirection, 10f, _topLeftMaterial);
                     _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageTopRightDirection, 10f, _topRightMaterial);
                     _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageBotLeftDirection, 10f, _botLeftMaterial);
