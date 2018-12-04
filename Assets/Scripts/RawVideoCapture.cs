@@ -105,7 +105,7 @@ public class RawVideoCapture : MonoBehaviour
 
         MediaCapture = new MediaCapture();
 
-        MediaCaptureInitializationSettings settings = new MediaCaptureInitializationSettings { VideoDeviceId = deviceInformation.Id };
+        MediaCaptureInitializationSettings settings = new MediaCaptureInitializationSettings{ VideoDeviceId = deviceInformation.Id, MemoryPreference = MediaCaptureMemoryPreference.Cpu };
         settings.StreamingCaptureMode = StreamingCaptureMode.Video;
 
         IReadOnlyList<MediaCaptureVideoProfile> profiles = MediaCapture.FindAllVideoProfiles(deviceInformation.Id);
@@ -124,6 +124,7 @@ public class RawVideoCapture : MonoBehaviour
             // Could not locate a WVGA 30FPS profile, use default video recording profile
             settings.VideoProfile = profiles[0];
         }
+
         await MediaCapture.InitializeAsync(settings);
 
         CreateFrameReader();
@@ -157,7 +158,7 @@ public class RawVideoCapture : MonoBehaviour
         var colorFrameSource = MediaCapture.FrameSources[colorSourceInfo.Id];
         var preferredFormat = colorFrameSource.SupportedFormats.Where(format =>
         {
-            return format.Subtype == MediaEncodingSubtypes.Bgra8;
+            return format.Subtype == MediaEncodingSubtypes.Argb32;
 
         }).FirstOrDefault();
 
@@ -181,7 +182,7 @@ public class RawVideoCapture : MonoBehaviour
                     continue; //ignoring frame
                 }
 
-                if (videoFrame.Direct3DSurface == null)
+                if (videoFrame.SoftwareBitmap == null)
                 {
                     continue; //ignoring frame
                 }
@@ -191,8 +192,8 @@ public class RawVideoCapture : MonoBehaviour
                 {
                     if (ObjectDetector.CameraWidth == 0)
                     {
-                        ObjectDetector.CameraWidth = videoFrame.Direct3DSurface.Description.Width;
-                        ObjectDetector.CameraHeight = videoFrame.Direct3DSurface.Description.Height;
+                        ObjectDetector.CameraWidth = videoFrame.SoftwareBitmap.PixelWidth;
+                        ObjectDetector.CameraHeight = videoFrame.SoftwareBitmap.PixelHeight;
                     }
 
                     var preds = await ObjectDetector.AnalyzeImage(videoFrame);

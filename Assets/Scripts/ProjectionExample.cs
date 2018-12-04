@@ -57,7 +57,7 @@ public class ProjectionExample : MonoBehaviour
     {
         // Create and set the gesture recognizer
         _gestureRecognizer = new UnityEngine.XR.WSA.Input.GestureRecognizer();
-        _gestureRecognizer.TappedEvent += (source, tapCount, headRay) => { Debug.Log("Tapped"); StartVideoCapture(); };
+        _gestureRecognizer.TappedEvent += (source, tapCount, headRay) => { Debug.Log("Tapped"); StartCoroutine(StopVideoMode()); };
         _gestureRecognizer.SetRecognizableGestures(UnityEngine.XR.WSA.Input.GestureSettings.Tap);
         _gestureRecognizer.StartCapturingGestures();
 
@@ -147,6 +147,7 @@ public class ProjectionExample : MonoBehaviour
         ObjectDetector.CameraHeight = _resolution.height;
         ObjectDetector.CameraWidth = _resolution.width;
 
+        _videoCapture.StartVideoModeAsync(cameraParams, OnVideoModeStarted);
     }
 
     private void OnVideoModeStarted(VideoCaptureResult result)
@@ -166,84 +167,98 @@ public class ProjectionExample : MonoBehaviour
     private void OnFrameSampleAcquired(VideoCaptureSample sample)
 #endif
     {
-        // Allocate byteBuffer
-        if (_latestImageBytes == null || _latestImageBytes.Length < sample.dataLength)
-            _latestImageBytes = new byte[sample.dataLength];
-
-        // Fill frame struct 
-        SampleStruct s = new SampleStruct();
-        sample.CopyRawImageDataIntoBuffer(_latestImageBytes);
-        s.data = _latestImageBytes;
-
-        // Get the cameraToWorldMatrix and projectionMatrix
-        if (!sample.TryGetCameraToWorldMatrix(out s.camera2WorldMatrix) || !sample.TryGetProjectionMatrix(out s.projectionMatrix))
-            return;
-
-        sample.Dispose();
-
-        Matrix4x4 camera2WorldMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(s.camera2WorldMatrix);
-        Matrix4x4 projectionMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(s.projectionMatrix);
-
-        Application.InvokeOnAppThread(() =>
+        // surrounded with try/finally because we need to dispose of the sample
+        try
         {
-            // Upload bytes to texture
-            _pictureTexture.LoadRawTextureData(s.data);
-            _pictureTexture.wrapMode = TextureWrapMode.Clamp;
-            _pictureTexture.Apply();
+            // Allocate byteBuffer
+            if (_latestImageBytes == null || _latestImageBytes.Length < sample.dataLength)
+                _latestImageBytes = new byte[sample.dataLength];
 
-            // Set material parameters
-            _pictureRenderer.sharedMaterial.SetTexture("_MainTex", _pictureTexture);
-            _pictureRenderer.sharedMaterial.SetMatrix("_WorldToCameraMatrix", camera2WorldMatrix.inverse);
-            _pictureRenderer.sharedMaterial.SetMatrix("_CameraProjectionMatrix", projectionMatrix);
-            _pictureRenderer.sharedMaterial.SetFloat("_VignetteScale", 0f);
+            // Fill frame struct 
+            SampleStruct s = new SampleStruct();
+            sample.CopyRawImageDataIntoBuffer(_latestImageBytes);
+            s.data = _latestImageBytes;
 
-            Vector3 inverseNormal = -camera2WorldMatrix.GetColumn(2);
-            // Position the canvas object slightly in front of the real world web camera.
-            Vector3 imagePosition = camera2WorldMatrix.GetColumn(3) - camera2WorldMatrix.GetColumn(2);
-
-            _picture.transform.position = imagePosition;
-            _picture.transform.rotation = Quaternion.LookRotation(inverseNormal, camera2WorldMatrix.GetColumn(1));
-
-        }, false);
-
-        // Stop the video and reproject the 5 pixels
-        if (stopVideo)
-        {
-            _videoCapture.StopVideoModeAsync(onVideoModeStopped);
-
-#if UNITY_WSA && !UNITY_EDITOR
-            VideoFrame videoFrame = (VideoFrame)videoFrameInfo.GetValue(sample);
-
-            if (videoFrame == null)
-            {
+            // Get the cameraToWorldMatrix and projectionMatrix
+            if (!sample.TryGetCameraToWorldMatrix(out s.camera2WorldMatrix) || !sample.TryGetProjectionMatrix(out s.projectionMatrix))
                 return;
-            }
 
-            var predictions = await ObjectDetector.AnalyzeImage(videoFrame);
-            if (predictions == null)
-            {
-                return;
-            }
-#endif
-
-
-            // Get the ray directions
-            Vector3 imageCenterDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width / 2, _resolution.height / 2));
-            Vector3 imageTopLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0, 0));
-            Vector3 imageTopRightDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width, 0));
-            Vector3 imageBotLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0, _resolution.height));
-            Vector3 imageBotRightDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width, _resolution.height));
+            Matrix4x4 camera2WorldMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(s.camera2WorldMatrix);
+            Matrix4x4 projectionMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(s.projectionMatrix);
 
             Application.InvokeOnAppThread(() =>
             {
-                // Paint the rays on the 3d world
-                _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageCenterDirection, 10f, _centerMaterial);
-                _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageTopLeftDirection, 10f, _topLeftMaterial);
-                _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageTopRightDirection, 10f, _topRightMaterial);
-                _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageBotLeftDirection, 10f, _botLeftMaterial);
-                _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageBotRightDirection, 10f, _botRightMaterial);
+                    // Upload bytes to texture
+                    _pictureTexture.LoadRawTextureData(s.data);
+                _pictureTexture.wrapMode = TextureWrapMode.Clamp;
+                _pictureTexture.Apply();
+
+                    // Set material parameters
+                    _pictureRenderer.sharedMaterial.SetTexture("_MainTex", _pictureTexture);
+                _pictureRenderer.sharedMaterial.SetMatrix("_WorldToCameraMatrix", camera2WorldMatrix.inverse);
+                _pictureRenderer.sharedMaterial.SetMatrix("_CameraProjectionMatrix", projectionMatrix);
+                _pictureRenderer.sharedMaterial.SetFloat("_VignetteScale", 0f);
+
+                Vector3 inverseNormal = -camera2WorldMatrix.GetColumn(2);
+                    // Position the canvas object slightly in front of the real world web camera.
+                    Vector3 imagePosition = camera2WorldMatrix.GetColumn(3) - camera2WorldMatrix.GetColumn(2);
+
+                _picture.transform.position = imagePosition;
+                _picture.transform.rotation = Quaternion.LookRotation(inverseNormal, camera2WorldMatrix.GetColumn(1));
 
             }, false);
+
+            // Stop the video and reproject the 5 pixels
+            if (stopVideo)
+            {
+                _videoCapture.StopVideoModeAsync(onVideoModeStopped);
+
+#if UNITY_WSA && !UNITY_EDITOR
+                VideoFrame videoFrame = (VideoFrame)videoFrameInfo.GetValue(sample);
+
+                if (videoFrame?.SoftwareBitmap == null)
+                {
+                    return;
+                }
+                SoftwareBitmap softwareBitmap = videoFrame.SoftwareBitmap;
+
+                if (softwareBitmap.BitmapPixelFormat != Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8 ||
+                    softwareBitmap.BitmapAlphaMode != Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied)
+                {
+                    softwareBitmap = SoftwareBitmap.Convert(softwareBitmap, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
+                    videoFrame = VideoFrame.CreateWithSoftwareBitmap(softwareBitmap);
+                }
+
+                var predictions = await ObjectDetector.AnalyzeImage(videoFrame);
+                if (predictions == null)
+                {
+                    return;
+                }
+#endif
+
+                // Get the ray directions
+                Vector3 imageCenterDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width / 2, _resolution.height / 2));
+                Vector3 imageTopLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0, 0));
+                Vector3 imageTopRightDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width, 0));
+                Vector3 imageBotLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0, _resolution.height));
+                Vector3 imageBotRightDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width, _resolution.height));
+
+                Application.InvokeOnAppThread(() =>
+                {
+                        // Paint the rays on the 3d world
+                        _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageCenterDirection, 10f, _centerMaterial);
+                    _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageTopLeftDirection, 10f, _topLeftMaterial);
+                    _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageTopRightDirection, 10f, _topRightMaterial);
+                    _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageBotLeftDirection, 10f, _botLeftMaterial);
+                    _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageBotRightDirection, 10f, _botRightMaterial);
+
+                }, false);
+            }
+
+        }
+        finally
+        {
+            sample.Dispose();
         }
     }
 
