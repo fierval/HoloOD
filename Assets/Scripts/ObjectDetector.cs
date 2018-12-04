@@ -19,8 +19,6 @@ using Windows.AI.MachineLearning;
 public static class ObjectDetector
 {
     public static float DetectionThreshold { get; set; }
-    public static int CameraWidth { get; set; }
-    public static int CameraHeight { get; set; }
 
 #if UNITY_WSA && !UNITY_EDITOR
 
@@ -39,7 +37,7 @@ public static class ObjectDetector
 
     static ObjectDetector()
     {
-        CameraWidth = CameraHeight = 0;
+       
     }
 
     public static async Task<bool> LoadModel()
@@ -83,16 +81,15 @@ public static class ObjectDetector
 #else
         TinyYoloV2O1ModelInput input = new TinyYoloV2O1ModelInput { image = videoFrame };
 #endif
-        if(CameraWidth == 0)
-        {
-            SetDimensionsFromVideoFrame(videoFrame);
-        }
+        var dims = GetDimensionsFromVideoFrame(videoFrame);
+        int width = dims.Item1;
+        int height = dims.Item2;
 
         var predictions = await model.EvaluateAsync(input).ConfigureAwait(false);
 #if SDK_1809
-        var boxes = parser.ParseOutputs(predictions.grid.GetAsVectorView().ToArray(), CameraWidth, CameraHeight, DetectionThreshold);
+        var boxes = parser.ParseOutputs(predictions.grid.GetAsVectorView().ToArray(), width, height, DetectionThreshold);
 #else
-        var boxes = parser.ParseOutputs(predictions.grid.ToArray(), CameraWidth, CameraHeight, DetectionThreshold);
+        var boxes = parser.ParseOutputs(predictions.grid.ToArray(), width, height, DetectionThreshold);
 #endif
         // normalize coordinates
         if (boxes.Count == 0)
@@ -103,27 +100,30 @@ public static class ObjectDetector
         boxes = parser.NonMaxSuppress(boxes);
         return boxes.Select(b => new YoloBoundingBox()
         {
-            X = b.X / CameraWidth,
-            Y = b.Y / CameraHeight,
-            Width = b.Width / CameraWidth,
-            Height = b.Height / CameraHeight,
+            X = b.X / width,
+            Y = b.Y / height,
+            Width = b.Width / width,
+            Height = b.Height / height,
             Confidence = b.Confidence,
             Label = b.Label
         }).ToList();
     }
 
-    private static void SetDimensionsFromVideoFrame(VideoFrame videoFrame)
+    private static Tuple<int, int> GetDimensionsFromVideoFrame(VideoFrame videoFrame)
     {
+        int width = 0, height =0;
+
         if (videoFrame.SoftwareBitmap != null)
         {
-            CameraWidth = videoFrame.SoftwareBitmap.PixelWidth;
-            CameraHeight = videoFrame.SoftwareBitmap.PixelHeight;
+            width = videoFrame.SoftwareBitmap.PixelWidth;
+            height = videoFrame.SoftwareBitmap.PixelHeight;
         }
         else if (videoFrame.Direct3DSurface != null)
         {
-            CameraWidth = videoFrame.Direct3DSurface.Description.Width;
-            CameraHeight = videoFrame.Direct3DSurface.Description.Height;
+            width = videoFrame.Direct3DSurface.Description.Width;
+            height = videoFrame.Direct3DSurface.Description.Height;
         }
+        return new Tuple<int, int>(width, height);
     }
 #endif
 

@@ -190,12 +190,6 @@ public class RawVideoCapture : MonoBehaviour
 
                 try
                 {
-                    if (ObjectDetector.CameraWidth == 0)
-                    {
-                        ObjectDetector.CameraWidth = videoFrame.SoftwareBitmap.PixelWidth;
-                        ObjectDetector.CameraHeight = videoFrame.SoftwareBitmap.PixelHeight;
-                    }
-
                     var preds = await ObjectDetector.AnalyzeImage(videoFrame);
                     textToDisplay = preds.OrderByDescending(b => b.Confidence).Take(5).Aggregate("", (a, l) => $"{a}\r\n{l.Label}");
                     DisplayText(textToDisplay);
