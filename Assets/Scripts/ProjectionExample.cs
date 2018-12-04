@@ -144,9 +144,6 @@ public class ProjectionExample : MonoBehaviour
         // Application.InvokeOnAppThread(() => { _pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false); }, false);
         _pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false);
 
-        ObjectDetector.CameraHeight = _resolution.height;
-        ObjectDetector.CameraWidth = _resolution.width;
-
         _videoCapture.StartVideoModeAsync(cameraParams, OnVideoModeStarted);
     }
 

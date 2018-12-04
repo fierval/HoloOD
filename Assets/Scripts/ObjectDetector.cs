@@ -83,6 +83,11 @@ public static class ObjectDetector
 #else
         TinyYoloV2O1ModelInput input = new TinyYoloV2O1ModelInput { image = videoFrame };
 #endif
+        if(CameraWidth == 0)
+        {
+            SetDimensionsFromVideoFrame(videoFrame);
+        }
+
         var predictions = await model.EvaluateAsync(input).ConfigureAwait(false);
 #if SDK_1809
         var boxes = parser.ParseOutputs(predictions.grid.GetAsVectorView().ToArray(), CameraWidth, CameraHeight, DetectionThreshold);
@@ -105,6 +110,20 @@ public static class ObjectDetector
             Confidence = b.Confidence,
             Label = b.Label
         }).ToList();
+    }
+
+    private static void SetDimensionsFromVideoFrame(VideoFrame videoFrame)
+    {
+        if (videoFrame.SoftwareBitmap != null)
+        {
+            CameraWidth = videoFrame.SoftwareBitmap.PixelWidth;
+            CameraHeight = videoFrame.SoftwareBitmap.PixelHeight;
+        }
+        else if (videoFrame.Direct3DSurface != null)
+        {
+            CameraWidth = videoFrame.Direct3DSurface.Description.Width;
+            CameraHeight = videoFrame.Direct3DSurface.Description.Height;
+        }
     }
 #endif
 
