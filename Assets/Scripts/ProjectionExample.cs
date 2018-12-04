@@ -186,6 +186,7 @@ public class ProjectionExample : MonoBehaviour
             Matrix4x4 camera2WorldMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(s.camera2WorldMatrix);
             Matrix4x4 projectionMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(s.projectionMatrix);
 
+            //TODO: Do we need this fancy threading?
             Application.InvokeOnAppThread(() =>
             {
                 // Upload bytes to texture
