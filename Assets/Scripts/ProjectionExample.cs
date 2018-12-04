@@ -9,6 +9,7 @@ using System.Reflection;
 using Application = UnityEngine.WSA.Application;
 
 #if UNITY_WSA && !UNITY_EDITOR
+using Windows.Media.Capture.Frames;
 using Windows.Media;
 using Windows.Graphics.Imaging;
 #endif
@@ -40,9 +41,10 @@ public class ProjectionExample : MonoBehaviour
     private Renderer _pictureRenderer;
     private Texture2D _pictureTexture;
 
-    private PropertyInfo softwareBitmapInfo;
+    private PropertyInfo videoFrameInfo;
 
     private RaycastLaser _laser;
+    private CameraParameters cameraParams;
 
     // This struct store frame related data
     private class SampleStruct
@@ -55,11 +57,16 @@ public class ProjectionExample : MonoBehaviour
     {
         // Create and set the gesture recognizer
         _gestureRecognizer = new UnityEngine.XR.WSA.Input.GestureRecognizer();
-        _gestureRecognizer.TappedEvent += (source, tapCount, headRay) => { Debug.Log("Tapped"); StartCoroutine(StopVideoMode()); };
+        _gestureRecognizer.TappedEvent += (source, tapCount, headRay) => { Debug.Log("Tapped"); StartVideoCapture(); };
         _gestureRecognizer.SetRecognizableGestures(UnityEngine.XR.WSA.Input.GestureSettings.Tap);
         _gestureRecognizer.StartCapturingGestures();
 
-        softwareBitmapInfo = typeof(VideoCaptureSample).GetTypeInfo().DeclaredProperties.Where(x => x.Name == "bitmap").Single();
+        videoFrameInfo = typeof(VideoCaptureSample).GetTypeInfo().DeclaredProperties.Where(x => x.Name == "videoFrame").Single();
+    }
+
+    private void StartVideoCapture()
+    {
+        _videoCapture.StartVideoModeAsync(cameraParams, OnVideoModeStarted);
     }
 
     void Start()
@@ -128,18 +135,18 @@ public class ProjectionExample : MonoBehaviour
 
         _videoCapture.FrameSampleAcquired += OnFrameSampleAcquired;
 
-        CameraParameters cameraParams = new CameraParameters();
+        cameraParams = new CameraParameters();
         cameraParams.cameraResolutionHeight = _resolution.height;
         cameraParams.cameraResolutionWidth = _resolution.width;
         cameraParams.frameRate = Mathf.RoundToInt(frameRate);
         cameraParams.pixelFormat = CapturePixelFormat.BGRA32;
 
-        Application.InvokeOnAppThread(() => { _pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false); }, false);
+        // Application.InvokeOnAppThread(() => { _pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false); }, false);
+        _pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false);
 
         ObjectDetector.CameraHeight = _resolution.height;
         ObjectDetector.CameraWidth = _resolution.width;
 
-        _videoCapture.StartVideoModeAsync(cameraParams, OnVideoModeStarted);
     }
 
     private void OnVideoModeStarted(VideoCaptureResult result)
@@ -168,14 +175,6 @@ public class ProjectionExample : MonoBehaviour
         sample.CopyRawImageDataIntoBuffer(_latestImageBytes);
         s.data = _latestImageBytes;
 
-#if UNITY_WSA && !UNITY_EDITOR
-        VideoFrame videoFrame = VideoFrame.CreateWithSoftwareBitmap((SoftwareBitmap) softwareBitmapInfo.GetValue(sample));
-        var predictions = await ObjectDetector.AnalyzeImage(videoFrame);
-        if (predictions == null)
-        {
-            return;
-        }
-#endif
         // Get the cameraToWorldMatrix and projectionMatrix
         if (!sample.TryGetCameraToWorldMatrix(out s.camera2WorldMatrix) || !sample.TryGetProjectionMatrix(out s.projectionMatrix))
             return;
@@ -211,6 +210,22 @@ public class ProjectionExample : MonoBehaviour
         if (stopVideo)
         {
             _videoCapture.StopVideoModeAsync(onVideoModeStopped);
+
+#if UNITY_WSA && !UNITY_EDITOR
+            VideoFrame videoFrame = (VideoFrame)videoFrameInfo.GetValue(sample);
+
+            if (videoFrame == null)
+            {
+                return;
+            }
+
+            var predictions = await ObjectDetector.AnalyzeImage(videoFrame);
+            if (predictions == null)
+            {
+                return;
+            }
+#endif
+
 
             // Get the ray directions
             Vector3 imageCenterDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width / 2, _resolution.height / 2));

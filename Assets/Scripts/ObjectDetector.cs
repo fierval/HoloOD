@@ -95,6 +95,12 @@ public static class ObjectDetector
             Predictions = null;
         }
 
+        if (CameraWidth == 0)
+        {
+            CameraWidth = videoFrame.SoftwareBitmap.PixelWidth;
+            CameraHeight = videoFrame.SoftwareBitmap.PixelHeight;
+        }
+
         boxes = parser.NonMaxSuppress(boxes);
         return boxes.Select(b => new YoloBoundingBox()
         {
