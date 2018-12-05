@@ -220,8 +220,8 @@ public class ProjectionExample : MonoBehaviour
                 }
                 SoftwareBitmap softwareBitmap = videoFrame.SoftwareBitmap;
 
-                if (softwareBitmap.BitmapPixelFormat != Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8 ||
-                    softwareBitmap.BitmapAlphaMode != Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied)
+                if (softwareBitmap.BitmapPixelFormat != BitmapPixelFormat.Bgra8 ||
+                    softwareBitmap.BitmapAlphaMode != BitmapAlphaMode.Premultiplied)
                 {
                     softwareBitmap = SoftwareBitmap.Convert(softwareBitmap, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
                     videoFrame = VideoFrame.CreateWithSoftwareBitmap(softwareBitmap);

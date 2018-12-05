@@ -1,15 +1,10 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using HoloToolkit.Unity;
 using Yolo;
 using System;
 
 #if UNITY_WSA && !UNITY_EDITOR
-using Windows.UI.Xaml.Media.Imaging;
-using Windows.Storage.Streams;
-using Windows.Graphics.Imaging;
 using System.Threading.Tasks;
 using Windows.Media;
 using Windows.Storage;
