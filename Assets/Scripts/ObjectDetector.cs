@@ -86,22 +86,11 @@ public static class ObjectDetector
 #else
         var boxes = parser.ParseOutputs(predictions.grid.ToArray(), width, height, DetectionThreshold);
 #endif
-        // normalize coordinates
-        if (boxes.Count == 0)
-        {
-            Predictions = null;
-        }
+        boxes = boxes.Where(b => b.Confidence >= DetectionThreshold).ToList();
 
+        // normalize coordinates
         boxes = parser.NonMaxSuppress(boxes);
-        return boxes.Select(b => new YoloBoundingBox()
-        {
-            X = b.X / width,
-            Y = b.Y / height,
-            Width = b.Width / width,
-            Height = b.Height / height,
-            Confidence = b.Confidence,
-            Label = b.Label
-        }).ToList();
+        return boxes.ToList();
     }
 
     private static Tuple<int, int> GetDimensionsFromVideoFrame(VideoFrame videoFrame)

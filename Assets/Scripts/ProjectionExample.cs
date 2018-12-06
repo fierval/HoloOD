@@ -30,7 +30,7 @@ public class ProjectionExample : MonoBehaviour
     public Material _centerMaterial;
 
     private HoloLensCameraStream.Resolution _resolution;
-    private VideoCapture _videoCapture;
+    private VideoCapture _videoCapture = null;
     private IntPtr _spatialCoordinateSystemPtr;
     private byte[] _latestImageBytes;
     private bool stopVideo;
@@ -40,6 +40,9 @@ public class ProjectionExample : MonoBehaviour
     private GameObject _picture;
     private Renderer _pictureRenderer;
     private Texture2D _pictureTexture;
+
+    public float DetectionThreshold = 0.1f;
+    public TextMesh LabelText;
 
     private PropertyInfo videoFrameInfo;
 
@@ -124,25 +127,27 @@ public class ProjectionExample : MonoBehaviour
             Debug.LogError("No VideoCapture found");
             return;
         }
+        if (_videoCapture == null)
+        {
+            _videoCapture = v;
 
-        _videoCapture = v;
+            //Request the spatial coordinate ptr if you want fetch the camera and set it if you need to 
+            CameraStreamHelper.Instance.SetNativeISpatialCoordinateSystemPtr(_spatialCoordinateSystemPtr);
 
-        //Request the spatial coordinate ptr if you want fetch the camera and set it if you need to 
-        CameraStreamHelper.Instance.SetNativeISpatialCoordinateSystemPtr(_spatialCoordinateSystemPtr);
+            _resolution = CameraStreamHelper.Instance.GetLowestResolution();
+            float frameRate = CameraStreamHelper.Instance.GetHighestFrameRate(_resolution);
 
-        _resolution = CameraStreamHelper.Instance.GetLowestResolution();
-        float frameRate = CameraStreamHelper.Instance.GetHighestFrameRate(_resolution);
+            _videoCapture.FrameSampleAcquired += OnFrameSampleAcquired;
 
-        _videoCapture.FrameSampleAcquired += OnFrameSampleAcquired;
+            cameraParams = new CameraParameters();
+            cameraParams.cameraResolutionHeight = _resolution.height;
+            cameraParams.cameraResolutionWidth = _resolution.width;
+            cameraParams.frameRate = Mathf.RoundToInt(frameRate);
+            cameraParams.pixelFormat = CapturePixelFormat.BGRA32;
 
-        cameraParams = new CameraParameters();
-        cameraParams.cameraResolutionHeight = _resolution.height;
-        cameraParams.cameraResolutionWidth = _resolution.width;
-        cameraParams.frameRate = Mathf.RoundToInt(frameRate);
-        cameraParams.pixelFormat = CapturePixelFormat.BGRA32;
-
-        // Application.InvokeOnAppThread(() => { _pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false); }, false);
-        _pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false);
+            // Application.InvokeOnAppThread(() => { _pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false); }, false);
+            _pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false);
+        }
 
         _videoCapture.StartVideoModeAsync(cameraParams, OnVideoModeStarted);
     }
@@ -198,6 +203,7 @@ public class ProjectionExample : MonoBehaviour
                 _pictureRenderer.sharedMaterial.SetFloat("_VignetteScale", 0f);
 
                 Vector3 inverseNormal = -camera2WorldMatrix.GetColumn(2);
+                
                 // Position the canvas object slightly in front of the real world web camera.
                 Vector3 imagePosition = camera2WorldMatrix.GetColumn(3) - camera2WorldMatrix.GetColumn(2);
 
@@ -210,6 +216,7 @@ public class ProjectionExample : MonoBehaviour
             if (stopVideo)
             {
                 _videoCapture.StopVideoModeAsync(onVideoModeStopped);
+                IList<Yolo.YoloBoundingBox> predictions = null;
 
 #if UNITY_WSA && !UNITY_EDITOR
                 VideoFrame videoFrame = (VideoFrame)videoFrameInfo.GetValue(sample);
@@ -227,13 +234,13 @@ public class ProjectionExample : MonoBehaviour
                     videoFrame = VideoFrame.CreateWithSoftwareBitmap(softwareBitmap);
                 }
 
-                var predictions = await ObjectDetector.AnalyzeImage(videoFrame);
+                predictions = await ObjectDetector.AnalyzeImage(videoFrame);
                 if (predictions == null)
                 {
                     return;
                 }
+                
 #endif
-
                 // Get the ray directions
                 Vector3 imageCenterDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width / 2, _resolution.height / 2));
                 Vector3 imageTopLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0, 0));
@@ -241,8 +248,37 @@ public class ProjectionExample : MonoBehaviour
                 Vector3 imageBotLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0, _resolution.height));
                 Vector3 imageBotRightDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width, _resolution.height));
 
+                // position text
                 Application.InvokeOnAppThread(() =>
                 {
+                    LabelText.text = predictions.Aggregate("", (a, p) => $"{a}, {p.Label}: {p.Confidence: 0.00}", r => "I see:" + r.Substring(1));
+
+                    Vector3 headPos = Camera.main.transform.position;
+                    Vector3 textPos = _picture.transform.position;
+                    textPos.x = imageCenterDirection.x;
+                    textPos.y = imageCenterDirection.y;
+                    RaycastHit objHitInfo;
+
+                    LabelText.transform.position = textPos;
+                    
+                    //TODO: this looks like a bug.
+                    //What is the right way to position the text?
+                    for(int i = 0; i < 2; i++)
+                    {
+                        if (Physics.Raycast(headPos, textPos, out objHitInfo, 10.0f))
+                        {
+                            LabelText.transform.position = objHitInfo.point;
+                            break;
+                        }
+                        else
+                        {
+                            headPos.z = 0;
+                        }
+                    } 
+
+                    //LabelText.transform.Translate(imageBotLeftDirection - imageCenterDirection);
+                    LabelText.transform.rotation = _picture.transform.rotation;
+
                     // Paint the rays on the 3d world
                     _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageCenterDirection, 10f, _centerMaterial);
                     _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageTopLeftDirection, 10f, _topLeftMaterial);
