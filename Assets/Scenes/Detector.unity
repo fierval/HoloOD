@@ -176,7 +176,7 @@ Prefab:
     - target: {fileID: 102000010767390410, guid: 2702ecab89b993642b714ec200597bbb,
         type: 2}
       propertyPath: m_Anchor
-      value: 2
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 102000010767390410, guid: 2702ecab89b993642b714ec200597bbb,
         type: 2}
@@ -188,14 +188,13 @@ Prefab:
       propertyPath: m_OffsetZ
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1000013198843976, guid: 2702ecab89b993642b714ec200597bbb, type: 2}
+      propertyPath: m_TagString
+      value: DetectedObjects
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_ParentPrefab: {fileID: 100100000, guid: 2702ecab89b993642b714ec200597bbb, type: 2}
   m_IsPrefabParent: 0
---- !u!102 &263738761 stripped
-TextMesh:
-  m_PrefabParentObject: {fileID: 102000010767390410, guid: 2702ecab89b993642b714ec200597bbb,
-    type: 2}
-  m_PrefabInternal: {fileID: 263738760}
 --- !u!1001 &1316799197
 Prefab:
   m_ObjectHideFlags: 0
@@ -349,7 +348,6 @@ MonoBehaviour:
   _botRightMaterial: {fileID: 2100000, guid: 51b5984f13d5f6d42a8c1225e88ad130, type: 2}
   _centerMaterial: {fileID: 2100000, guid: a505d9aa5160e0e4db8c74d9a916e069, type: 2}
   DetectionThreshold: 0.1
-  LabelText: {fileID: 263738761}
 --- !u!1 &1882314575
 GameObject:
   m_ObjectHideFlags: 0
