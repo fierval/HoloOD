@@ -42,7 +42,7 @@ public class ProjectionExample : MonoBehaviour
     private Texture2D _pictureTexture;
 
     public float DetectionThreshold = 0.1f;
-    public TextMesh LabelText;
+    TextMesh LabelText;
 
     private PropertyInfo videoFrameInfo;
 
@@ -85,6 +85,8 @@ public class ProjectionExample : MonoBehaviour
 
         // Set the laser
         _laser = GetComponent<RaycastLaser>();
+        LabelText = GameObject.FindGameObjectWithTag("DetectedObjects").GetComponent<TextMesh>();
+
 #if UNITY_WSA && !UNITY_EDITOR
         LoadModel();
 #endif
