@@ -347,7 +347,7 @@ MonoBehaviour:
   _botLeftMaterial: {fileID: 2100000, guid: 0a67b708600e3c241bc22323cad9f843, type: 2}
   _botRightMaterial: {fileID: 2100000, guid: 51b5984f13d5f6d42a8c1225e88ad130, type: 2}
   _centerMaterial: {fileID: 2100000, guid: a505d9aa5160e0e4db8c74d9a916e069, type: 2}
-  DetectionThreshold: 0.1
+  DetectionThreshold: 0.3
 --- !u!1 &1882314575
 GameObject:
   m_ObjectHideFlags: 0
