@@ -42,6 +42,7 @@ public class ProjectionExample : MonoBehaviour
     private Texture2D _pictureTexture;
 
     public float DetectionThreshold = 0.1f;
+    GameObject Label;
     TextMesh LabelText;
 
     private PropertyInfo videoFrameInfo;
@@ -65,6 +66,8 @@ public class ProjectionExample : MonoBehaviour
         _gestureRecognizer.StartCapturingGestures();
 
         videoFrameInfo = typeof(VideoCaptureSample).GetTypeInfo().DeclaredProperties.Where(x => x.Name == "videoFrame").Single();
+
+        ObjectDetector.DetectionThreshold = DetectionThreshold;
     }
 
     private void StartVideoCapture()
@@ -85,7 +88,8 @@ public class ProjectionExample : MonoBehaviour
 
         // Set the laser
         _laser = GetComponent<RaycastLaser>();
-        LabelText = GameObject.FindGameObjectWithTag("DetectedObjects").GetComponent<TextMesh>();
+        Label = GameObject.FindGameObjectWithTag("DetectedObjects");
+        LabelText = Label.GetComponent<TextMesh>();
 
 #if UNITY_WSA && !UNITY_EDITOR
         LoadModel();
@@ -261,11 +265,11 @@ public class ProjectionExample : MonoBehaviour
                     textPos.y = imageCenterDirection.y;
                     RaycastHit objHitInfo;
 
-                    LabelText.transform.position = textPos;
-                    
+                    Label.transform.position = textPos;
+
                     //TODO: this looks like a bug.
-                    //What is the right way to position the text?
-                    for(int i = 0; i < 2; i++)
+                    //What is the right way to position the text ?
+                    for (int i = 0; i < 2; i++)
                     {
                         if (Physics.Raycast(headPos, textPos, out objHitInfo, 10.0f))
                         {
@@ -276,10 +280,10 @@ public class ProjectionExample : MonoBehaviour
                         {
                             headPos.z = 0;
                         }
-                    } 
+                    }
 
                     //LabelText.transform.Translate(imageBotLeftDirection - imageCenterDirection);
-                    LabelText.transform.rotation = _picture.transform.rotation;
+                    Label.transform.rotation = _picture.transform.rotation;
 
                     // Paint the rays on the 3d world
                     _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageCenterDirection, 10f, _centerMaterial);
