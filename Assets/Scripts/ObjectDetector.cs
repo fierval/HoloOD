@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEngine;
 using Yolo;
 using System;
+using HoloToolkit.Unity;
 
 #if UNITY_WSA && !UNITY_EDITOR
 using System.Threading.Tasks;
@@ -11,31 +12,31 @@ using Windows.Storage;
 using Windows.AI.MachineLearning;
 #endif
 
-public static class ObjectDetector
+public  class ObjectDetector : Singleton<ObjectDetector>
 {
-    public static float DetectionThreshold { get; set; }
+    public float DetectionThreshold;
 
 #if UNITY_WSA && !UNITY_EDITOR
 
-    public static IList<YoloBoundingBox> Predictions { get; private set; }
+    public  IList<YoloBoundingBox> Predictions { get; private set; }
     
 
     // Model instantiation goes here
 #if SDK_1809
-    public static TinyYoloV2O12Model model;
-    static readonly Uri modelFile = new Uri("ms-appx:///Data/StreamingAssets/Tiny-YOLOv2O12.onnx");
+    public  TinyYoloV2O12Model model;
+     readonly Uri modelFile = new Uri("ms-appx:///Data/StreamingAssets/Tiny-YOLOv2O12.onnx");
 #else
-    public static TinyYoloV2O1Model model;
-    static readonly Uri modelFile = new Uri("ms-appx:///Data/StreamingAssets/Tiny-YOLOv2.onnx");
+    public  TinyYoloV2O1Model model;
+     readonly Uri modelFile = new Uri("ms-appx:///Data/StreamingAssets/Tiny-YOLOv2.onnx");
 #endif
-    static YoloWinMlParser parser = new YoloWinMlParser();
+     YoloWinMlParser parser = new YoloWinMlParser();
 
-    static ObjectDetector()
+     ObjectDetector()
     {
        
     }
 
-    public static async Task<bool> LoadModel()
+    public  async Task<bool> LoadModel()
     {
         try
         {
@@ -66,7 +67,7 @@ public static class ObjectDetector
     }
 
 
-    public static async Task<IList<YoloBoundingBox>> AnalyzeImage(VideoFrame videoFrame)
+    public  async Task<IList<YoloBoundingBox>> AnalyzeImage(VideoFrame videoFrame)
     {
         // This appears to be the right way to handle background tasks.
         // We return to the main thread as fast as we can, and wait for the next call to the Update()
@@ -93,7 +94,7 @@ public static class ObjectDetector
         return boxes.ToList();
     }
 
-    private static Tuple<int, int> GetDimensionsFromVideoFrame(VideoFrame videoFrame)
+    private  Tuple<int, int> GetDimensionsFromVideoFrame(VideoFrame videoFrame)
     {
         int width = 0, height =0;
 

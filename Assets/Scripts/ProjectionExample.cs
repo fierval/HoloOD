@@ -31,7 +31,6 @@ public class ProjectionExample : MonoBehaviour
     private bool stopVideo;
     private UnityEngine.XR.WSA.Input.GestureRecognizer _gestureRecognizer;
 
-    public float DetectionThreshold = 0.1f;
     GameObject Label;
 
     private PropertyInfo videoFrameInfo;
@@ -57,7 +56,6 @@ public class ProjectionExample : MonoBehaviour
 
         videoFrameInfo = typeof(VideoCaptureSample).GetTypeInfo().DeclaredProperties.Where(x => x.Name == "videoFrame").Single();
 
-        ObjectDetector.DetectionThreshold = DetectionThreshold;
     }
 
     private void StartVideoCapture()
@@ -85,7 +83,7 @@ public class ProjectionExample : MonoBehaviour
 #if UNITY_WSA && !UNITY_EDITOR
     async void LoadModel()
     {
-        if (!await ObjectDetector.LoadModel() || ObjectDetector.model == null)
+        if (!await ObjectDetector.Instance.LoadModel() || ObjectDetector.Instance.model == null)
         {
             throw new ApplicationException("could not load model");
         }
@@ -244,7 +242,7 @@ public class ProjectionExample : MonoBehaviour
                 videoFrame = VideoFrame.CreateWithSoftwareBitmap(softwareBitmap);
             }
 
-            predictions = await ObjectDetector.AnalyzeImage(videoFrame);
+            predictions = await ObjectDetector.Instance.AnalyzeImage(videoFrame);
             if (predictions?.Count == 0)
             {
                 return;
@@ -279,7 +277,7 @@ public class ProjectionExample : MonoBehaviour
 
                     label.transform.rotation = picture.transform.rotation;
 
-                    _laser.shootLaser(headPos, direction, 10.0f, confidence, DetectionThreshold);
+                    _laser.shootLaser(headPos, direction, 10.0f, confidence, ObjectDetector.Instance.DetectionThreshold);
                 }
 
             }, false);
