@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Collections;
 using System.Reflection;
 using Application = UnityEngine.WSA.Application;
+using Yolo;
 
 #if UNITY_WSA && !UNITY_EDITOR
 using Windows.Media.Capture.Frames;
@@ -36,14 +37,8 @@ public class ProjectionExample : MonoBehaviour
     private bool stopVideo;
     private UnityEngine.XR.WSA.Input.GestureRecognizer _gestureRecognizer;
 
-    // Frame gameobject, renderer and texture
-    private GameObject _picture;
-    private Renderer _pictureRenderer;
-    private Texture2D _pictureTexture;
-
     public float DetectionThreshold = 0.1f;
     GameObject Label;
-    TextMesh LabelText;
 
     private PropertyInfo videoFrameInfo;
 
@@ -81,15 +76,10 @@ public class ProjectionExample : MonoBehaviour
         _spatialCoordinateSystemPtr = UnityEngine.XR.WSA.WorldManager.GetNativeISpatialCoordinateSystemPtr();
         CameraStreamHelper.Instance.GetVideoCaptureAsync(OnVideoCaptureCreated);
 
-        // Create the frame container and apply HolographicImageBlend shader
-        _picture = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        _pictureRenderer = _picture.GetComponent<Renderer>() as Renderer;
-        _pictureRenderer.material = new Material(Shader.Find("AR/HolographicImageBlend"));
-
         // Set the laser
-        _laser = GetComponent<RaycastLaser>();
+        _laser = RaycastLaser.Instance;
+
         Label = GameObject.FindGameObjectWithTag("DetectedObjects");
-        LabelText = Label.GetComponent<TextMesh>();
 
 #if UNITY_WSA && !UNITY_EDITOR
         LoadModel();
@@ -150,9 +140,6 @@ public class ProjectionExample : MonoBehaviour
             cameraParams.cameraResolutionWidth = _resolution.width;
             cameraParams.frameRate = Mathf.RoundToInt(frameRate);
             cameraParams.pixelFormat = CapturePixelFormat.BGRA32;
-
-            // Application.InvokeOnAppThread(() => { _pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false); }, false);
-            _pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false);
         }
 
         _videoCapture.StartVideoModeAsync(cameraParams, OnVideoModeStarted);
@@ -195,32 +182,41 @@ public class ProjectionExample : MonoBehaviour
             Matrix4x4 projectionMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(s.projectionMatrix);
 
             //TODO: Do we need this fancy threading?
-            Application.InvokeOnAppThread(() =>
-            {
-                // Upload bytes to texture
-                _pictureTexture.LoadRawTextureData(s.data);
-                _pictureTexture.wrapMode = TextureWrapMode.Clamp;
-                _pictureTexture.Apply();
-
-                // Set material parameters
-                _pictureRenderer.sharedMaterial.SetTexture("_MainTex", _pictureTexture);
-                _pictureRenderer.sharedMaterial.SetMatrix("_WorldToCameraMatrix", camera2WorldMatrix.inverse);
-                _pictureRenderer.sharedMaterial.SetMatrix("_CameraProjectionMatrix", projectionMatrix);
-                _pictureRenderer.sharedMaterial.SetFloat("_VignetteScale", 0f);
-
-                Vector3 inverseNormal = -camera2WorldMatrix.GetColumn(2);
-                
-                // Position the canvas object slightly in front of the real world web camera.
-                Vector3 imagePosition = camera2WorldMatrix.GetColumn(3) - camera2WorldMatrix.GetColumn(2);
-
-                _picture.transform.position = imagePosition;
-                _picture.transform.rotation = Quaternion.LookRotation(inverseNormal, camera2WorldMatrix.GetColumn(1));
-
-            }, false);
 
             // Stop the video and reproject the 5 pixels
+            GameObject picture = null;
+
             if (stopVideo)
             {
+                Application.InvokeOnAppThread(() =>
+                {
+                    picture = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                    var pictureRenderer = picture.GetComponent<Renderer>() as Renderer;
+                    pictureRenderer.material = new Material(Shader.Find("AR/HolographicImageBlend"));
+                    var pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false);
+
+                    // Upload bytes to texture
+                    pictureTexture.LoadRawTextureData(s.data);
+                    pictureTexture.wrapMode = TextureWrapMode.Clamp;
+                    pictureTexture.Apply();
+
+
+                    // Set material parameters
+                    pictureRenderer.sharedMaterial.SetTexture("_MainTex", pictureTexture);
+                    pictureRenderer.sharedMaterial.SetMatrix("_WorldToCameraMatrix", camera2WorldMatrix.inverse);
+                    pictureRenderer.sharedMaterial.SetMatrix("_CameraProjectionMatrix", projectionMatrix);
+                    pictureRenderer.sharedMaterial.SetFloat("_VignetteScale", 0f);
+
+                    Vector3 inverseNormal = -camera2WorldMatrix.GetColumn(2);
+
+                    // Position the canvas object slightly in front of the real world web camera.
+                    Vector3 imagePosition = camera2WorldMatrix.GetColumn(3) - camera2WorldMatrix.GetColumn(2);
+
+                    picture.transform.position = imagePosition;
+                    picture.transform.rotation = Quaternion.LookRotation(inverseNormal, camera2WorldMatrix.GetColumn(1));
+
+                }, false);
+
                 _videoCapture.StopVideoModeAsync(onVideoModeStopped);
                 IList<Yolo.YoloBoundingBox> predictions = null;
 
@@ -233,21 +229,22 @@ public class ProjectionExample : MonoBehaviour
                 }
                 SoftwareBitmap softwareBitmap = videoFrame.SoftwareBitmap;
 
-                if (softwareBitmap.BitmapPixelFormat != BitmapPixelFormat.Bgra8 ||
-                    softwareBitmap.BitmapAlphaMode != BitmapAlphaMode.Premultiplied)
+                if (softwareBitmap.BitmapAlphaMode != BitmapAlphaMode.Premultiplied)
                 {
                     softwareBitmap = SoftwareBitmap.Convert(softwareBitmap, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
                     videoFrame = VideoFrame.CreateWithSoftwareBitmap(softwareBitmap);
                 }
 
                 predictions = await ObjectDetector.AnalyzeImage(videoFrame);
-                if (predictions == null)
+                if (predictions?.Count == 0)
                 {
                     return;
                 }
-                
+
 #endif
-                // Get the ray directions
+                var shootingDirections = GetRectCentersInWorldCoordinates(camera2WorldMatrix, projectionMatrix, predictions);
+
+                //// Get the ray directions
                 Vector3 imageCenterDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width / 2, _resolution.height / 2));
                 Vector3 imageTopLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0, 0));
                 Vector3 imageTopRightDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width, 0));
@@ -257,40 +254,54 @@ public class ProjectionExample : MonoBehaviour
                 // position text
                 Application.InvokeOnAppThread(() =>
                 {
-                    LabelText.text = predictions.Aggregate("", (a, p) => $"{a}, {p.Label}: {p.Confidence: 0.00}", r => "I see:" + r.Substring(1));
-
-                    Vector3 headPos = Camera.main.transform.position;
-                    Vector3 textPos = _picture.transform.position;
-                    textPos.x = imageCenterDirection.x;
-                    textPos.y = imageCenterDirection.y;
-                    RaycastHit objHitInfo;
-
-                    Label.transform.position = textPos;
-
-                    //TODO: this looks like a bug.
-                    //What is the right way to position the text ?
-                    for (int i = 0; i < 2; i++)
+                    //Vector3 headPos = Camera.main.transform.position;
+                    Vector3 headPos = camera2WorldMatrix.GetColumn(3);
+                    foreach (var labelConfidenceDirection in shootingDirections)
                     {
-                        if (Physics.Raycast(headPos, textPos, out objHitInfo, 10.0f))
+                        // decompose the tuple and get the goodies
+                        string labelText = labelConfidenceDirection.Item1;
+                        float confidence = labelConfidenceDirection.Item2;
+                        Vector3 direction = labelConfidenceDirection.Item3;
+
+                        // shoot the laser
+                        _laser.shootLaserFrom(headPos, direction, 10f);
+                        var label = Instantiate(Label).GetComponent<TextMesh>();
+
+                        label.text = $"{labelText}: {confidence : 0.00}";
+
+                        Vector3 textPos = picture.transform.position;
+                        textPos.x = direction.x;
+                        textPos.y = direction.y;
+                        RaycastHit objHitInfo;
+
+                        label.transform.position = textPos;
+
+                        //TODO: this looks like a bug.
+                        //What is the right way to position the text ?
+                        for (int i = 0; i < 2; i++)
                         {
-                            LabelText.transform.position = objHitInfo.point;
-                            break;
+                            if (Physics.Raycast(headPos, textPos, out objHitInfo, 10.0f))
+                            {
+                                label.transform.position = objHitInfo.point;
+                                break;
+                            }
+                            else
+                            {
+                                headPos.z = 0;
+                            }
                         }
-                        else
-                        {
-                            headPos.z = 0;
-                        }
+
+                        //LabelText.transform.Translate(imageBotLeftDirection - imageCenterDirection);
+                        label.transform.rotation = picture.transform.rotation;
                     }
-
-                    //LabelText.transform.Translate(imageBotLeftDirection - imageCenterDirection);
-                    Label.transform.rotation = _picture.transform.rotation;
-
                     // Paint the rays on the 3d world
-                    _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageCenterDirection, 10f, _centerMaterial);
-                    _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageTopLeftDirection, 10f, _topLeftMaterial);
-                    _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageTopRightDirection, 10f, _topRightMaterial);
-                    _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageBotLeftDirection, 10f, _botLeftMaterial);
-                    _laser.shootLaserFrom(camera2WorldMatrix.GetColumn(3), imageBotRightDirection, 10f, _botRightMaterial);
+                    /*
+                    _laser.shootLaserFrom(headPos, imageCenterDirection, 10f, _centerMaterial);
+                    _laser.shootLaserFrom(headPos, imageTopLeftDirection, 10f, _topLeftMaterial);
+                    _laser.shootLaserFrom(headPos, imageTopRightDirection, 10f, _topRightMaterial);
+                    _laser.shootLaserFrom(headPos, imageBotLeftDirection, 10f, _botLeftMaterial);
+                    _laser.shootLaserFrom(headPos, imageBotRightDirection, 10f, _botRightMaterial);
+                    */
 
                 }, false);
             }
@@ -299,6 +310,26 @@ public class ProjectionExample : MonoBehaviour
         finally
         {
             sample.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Return a tuple of Label, Confidence, and point to shoot a ray in the world coordinate
+    /// Of a detection
+    /// </summary>
+    /// <param name="camera2WorldMatrix">Camera-to-world matrix</param>
+    /// <param name="projectionMatrix">Projection matrix</param>
+    /// <param name="predictions">List of predictions</param>
+    /// <returns></returns>
+    private IEnumerable<Tuple<string, float, Vector3>> GetRectCentersInWorldCoordinates(Matrix4x4 camera2WorldMatrix, Matrix4x4 projectionMatrix,  IList<YoloBoundingBox> predictions)
+    {
+
+        foreach(var p in predictions)
+        {
+            var centerX = p.X + p.Width / 2;
+            var centerY = p.Y + p.Height / 2;
+            var direction = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(centerX, centerY));
+            yield return new Tuple<string, float, Vector3>(p.Label, p.Confidence, direction);
         }
     }
 

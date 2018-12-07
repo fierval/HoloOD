@@ -155,7 +155,7 @@ Prefab:
     - target: {fileID: 102000010767390410, guid: 2702ecab89b993642b714ec200597bbb,
         type: 2}
       propertyPath: m_Text
-      value: Sample Text
+      value: 
       objectReference: {fileID: 0}
     - target: {fileID: 4000010330146594, guid: 2702ecab89b993642b714ec200597bbb, type: 2}
       propertyPath: m_LocalScale.x
@@ -176,12 +176,12 @@ Prefab:
     - target: {fileID: 102000010767390410, guid: 2702ecab89b993642b714ec200597bbb,
         type: 2}
       propertyPath: m_Anchor
-      value: 0
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 102000010767390410, guid: 2702ecab89b993642b714ec200597bbb,
         type: 2}
       propertyPath: m_Alignment
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 102000010767390410, guid: 2702ecab89b993642b714ec200597bbb,
         type: 2}
@@ -347,7 +347,7 @@ MonoBehaviour:
   _botLeftMaterial: {fileID: 2100000, guid: 0a67b708600e3c241bc22323cad9f843, type: 2}
   _botRightMaterial: {fileID: 2100000, guid: 51b5984f13d5f6d42a8c1225e88ad130, type: 2}
   _centerMaterial: {fileID: 2100000, guid: a505d9aa5160e0e4db8c74d9a916e069, type: 2}
-  DetectionThreshold: 0.3
+  DetectionThreshold: 0.1
 --- !u!1 &1882314575
 GameObject:
   m_ObjectHideFlags: 0
