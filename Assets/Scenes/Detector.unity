@@ -150,7 +150,7 @@ Prefab:
       objectReference: {fileID: 0}
     - target: {fileID: 4000010330146594, guid: 2702ecab89b993642b714ec200597bbb, type: 2}
       propertyPath: m_RootOrder
-      value: 5
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 102000010767390410, guid: 2702ecab89b993642b714ec200597bbb,
         type: 2}
@@ -294,19 +294,6 @@ GameObject:
   m_PrefabParentObject: {fileID: 1850730992894404, guid: d29bc40b7f3df26479d6a0aac211c355,
     type: 2}
   m_PrefabInternal: {fileID: 1345120981}
---- !u!114 &1345120983
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
-  m_GameObject: {fileID: 1345120982}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dfa0706f5e1644c4cb7354a879b215e0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  Label: {fileID: 1000013198843976, guid: 2702ecab89b993642b714ec200597bbb, type: 2}
-  detectionThreshold: 0.2
 --- !u!114 &1345120984
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -318,8 +305,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e6167489da531a44fb6c8e6a13559d6b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _lineWidthMultiplier: 0.05
+  _lineWidthMultiplier: 0.02
   _laserMaterial: {fileID: 2100000, guid: facf14d3152ea6b4381049fec17f3cea, type: 2}
+  useRayCast: 1
 --- !u!114 &1345120985
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -411,7 +399,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 4
+  m_RootOrder: 5
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
 --- !u!1001 &1896798892
 Prefab:
