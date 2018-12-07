@@ -22,6 +22,7 @@ using Windows.Graphics.Imaging;
 /// </summary>
 public class ProjectionExample : MonoBehaviour
 {
+    object sync = new object();
 
     // "Injected materials"
     public Material _topLeftMaterial;
@@ -44,6 +45,7 @@ public class ProjectionExample : MonoBehaviour
 
     private RaycastLaser _laser;
     private CameraParameters cameraParams;
+    private bool processingFrame = false;
 
     // This struct store frame related data
     private class SampleStruct
@@ -104,7 +106,10 @@ public class ProjectionExample : MonoBehaviour
         stopVideo = !stopVideo;
 
         if (!stopVideo)
+        {
+            processingFrame = false;
             OnVideoCaptureCreated(_videoCapture);
+        }
     }
 
     private void OnDestroy()
@@ -162,6 +167,19 @@ public class ProjectionExample : MonoBehaviour
     private void OnFrameSampleAcquired(VideoCaptureSample sample)
 #endif
     {
+        lock (sync)
+        {
+            if (!stopVideo || processingFrame)
+            {
+                return;
+            }
+
+            if (!processingFrame)
+            {
+                processingFrame = true;
+            }
+        }
+
         // surrounded with try/finally because we need to dispose of the sample
         try
         {
@@ -186,125 +204,111 @@ public class ProjectionExample : MonoBehaviour
             // Stop the video and reproject the 5 pixels
             GameObject picture = null;
 
-            if (stopVideo)
+            Application.InvokeOnAppThread(() =>
             {
-                Application.InvokeOnAppThread(() =>
-                {
-                    picture = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                    var pictureRenderer = picture.GetComponent<Renderer>() as Renderer;
-                    pictureRenderer.material = new Material(Shader.Find("AR/HolographicImageBlend"));
-                    var pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false);
+                picture = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                var pictureRenderer = picture.GetComponent<Renderer>() as Renderer;
+                pictureRenderer.material = new Material(Shader.Find("AR/HolographicImageBlend"));
+                var pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false);
 
-                    // Upload bytes to texture
-                    pictureTexture.LoadRawTextureData(s.data);
-                    pictureTexture.wrapMode = TextureWrapMode.Clamp;
-                    pictureTexture.Apply();
+                // Upload bytes to texture
+                pictureTexture.LoadRawTextureData(s.data);
+                pictureTexture.wrapMode = TextureWrapMode.Clamp;
+                pictureTexture.Apply();
 
 
-                    // Set material parameters
-                    pictureRenderer.sharedMaterial.SetTexture("_MainTex", pictureTexture);
-                    pictureRenderer.sharedMaterial.SetMatrix("_WorldToCameraMatrix", camera2WorldMatrix.inverse);
-                    pictureRenderer.sharedMaterial.SetMatrix("_CameraProjectionMatrix", projectionMatrix);
-                    pictureRenderer.sharedMaterial.SetFloat("_VignetteScale", 0f);
+                // Set material parameters
+                pictureRenderer.sharedMaterial.SetTexture("_MainTex", pictureTexture);
+                pictureRenderer.sharedMaterial.SetMatrix("_WorldToCameraMatrix", camera2WorldMatrix.inverse);
+                pictureRenderer.sharedMaterial.SetMatrix("_CameraProjectionMatrix", projectionMatrix);
+                pictureRenderer.sharedMaterial.SetFloat("_VignetteScale", 0f);
 
-                    Vector3 inverseNormal = -camera2WorldMatrix.GetColumn(2);
+                Vector3 inverseNormal = -camera2WorldMatrix.GetColumn(2);
 
-                    // Position the canvas object slightly in front of the real world web camera.
-                    Vector3 imagePosition = camera2WorldMatrix.GetColumn(3) - camera2WorldMatrix.GetColumn(2);
+                // Position the canvas object slightly in front of the real world web camera.
+                Vector3 imagePosition = camera2WorldMatrix.GetColumn(3) - camera2WorldMatrix.GetColumn(2);
 
-                    picture.transform.position = imagePosition;
-                    picture.transform.rotation = Quaternion.LookRotation(inverseNormal, camera2WorldMatrix.GetColumn(1));
+                picture.transform.position = imagePosition;
+                picture.transform.rotation = Quaternion.LookRotation(inverseNormal, camera2WorldMatrix.GetColumn(1));
 
-                }, false);
+            }, false);
 
-                _videoCapture.StopVideoModeAsync(onVideoModeStopped);
-                IList<Yolo.YoloBoundingBox> predictions = null;
+            _videoCapture.StopVideoModeAsync(onVideoModeStopped);
+            IList<Yolo.YoloBoundingBox> predictions = null;
 
 #if UNITY_WSA && !UNITY_EDITOR
-                VideoFrame videoFrame = (VideoFrame)videoFrameInfo.GetValue(sample);
+            VideoFrame videoFrame = (VideoFrame)videoFrameInfo.GetValue(sample);
 
-                if (videoFrame?.SoftwareBitmap == null)
-                {
-                    return;
-                }
-                SoftwareBitmap softwareBitmap = videoFrame.SoftwareBitmap;
+            if (videoFrame?.SoftwareBitmap == null)
+            {
+                return;
+            }
+            SoftwareBitmap softwareBitmap = videoFrame.SoftwareBitmap;
 
-                if (softwareBitmap.BitmapAlphaMode != BitmapAlphaMode.Premultiplied)
-                {
-                    softwareBitmap = SoftwareBitmap.Convert(softwareBitmap, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
-                    videoFrame = VideoFrame.CreateWithSoftwareBitmap(softwareBitmap);
-                }
+            if (softwareBitmap.BitmapAlphaMode != BitmapAlphaMode.Premultiplied)
+            {
+                softwareBitmap = SoftwareBitmap.Convert(softwareBitmap, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
+                videoFrame = VideoFrame.CreateWithSoftwareBitmap(softwareBitmap);
+            }
 
-                predictions = await ObjectDetector.AnalyzeImage(videoFrame);
-                if (predictions?.Count == 0)
-                {
-                    return;
-                }
+            predictions = await ObjectDetector.AnalyzeImage(videoFrame);
+            if (predictions?.Count == 0)
+            {
+                return;
+            }
 
 #endif
-                var shootingDirections = GetRectCentersInWorldCoordinates(camera2WorldMatrix, projectionMatrix, predictions);
+            var shootingDirections = GetRectCentersInWorldCoordinates(camera2WorldMatrix, projectionMatrix, predictions);
 
-                //// Get the ray directions
-                Vector3 imageCenterDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width / 2, _resolution.height / 2));
-                Vector3 imageTopLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0, 0));
-                Vector3 imageTopRightDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width, 0));
-                Vector3 imageBotLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0, _resolution.height));
-                Vector3 imageBotRightDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width, _resolution.height));
+            // Get the ray directions
+            /*
+            Vector3 imageCenterDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width / 2, _resolution.height / 2));
+            Vector3 imageTopLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0, 0));
+            Vector3 imageTopRightDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width, 0));
+            Vector3 imageBotLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0, _resolution.height));
+            Vector3 imageBotRightDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width, _resolution.height));
+            */
 
-                // position text
-                Application.InvokeOnAppThread(() =>
+            // position text
+            Application.InvokeOnAppThread(() =>
+            {
+                Vector3 headPos = Camera.main.transform.position;
+                foreach (var labelConfidenceDirection in shootingDirections)
                 {
-                    //Vector3 headPos = Camera.main.transform.position;
-                    Vector3 headPos = camera2WorldMatrix.GetColumn(3);
-                    foreach (var labelConfidenceDirection in shootingDirections)
+                    // decompose the tuple and get the goodies
+                    string labelText = labelConfidenceDirection.Item1;
+                    float confidence = labelConfidenceDirection.Item2;
+                    Vector3 direction = labelConfidenceDirection.Item3;
+
+                    // shoot the laser
+                    var label = Instantiate(Label).GetComponent<TextMesh>();
+
+                    label.text = $"{labelText}: {confidence: 0.00}";
+                    RaycastHit objHitInfo;
+
+                    label.transform.position = direction;
+
+                    if (Physics.Raycast(headPos, direction, out objHitInfo, 10.0f))
                     {
-                        // decompose the tuple and get the goodies
-                        string labelText = labelConfidenceDirection.Item1;
-                        float confidence = labelConfidenceDirection.Item2;
-                        Vector3 direction = labelConfidenceDirection.Item3;
-
-                        // shoot the laser
-                        _laser.shootLaserFrom(headPos, direction, 10f);
-                        var label = Instantiate(Label).GetComponent<TextMesh>();
-
-                        label.text = $"{labelText}: {confidence : 0.00}";
-
-                        Vector3 textPos = picture.transform.position;
-                        textPos.x = direction.x;
-                        textPos.y = direction.y;
-                        RaycastHit objHitInfo;
-
-                        label.transform.position = textPos;
-
-                        //TODO: this looks like a bug.
-                        //What is the right way to position the text ?
-                        for (int i = 0; i < 2; i++)
-                        {
-                            if (Physics.Raycast(headPos, textPos, out objHitInfo, 10.0f))
-                            {
-                                label.transform.position = objHitInfo.point;
-                                break;
-                            }
-                            else
-                            {
-                                headPos.z = 0;
-                            }
-                        }
-
-                        //LabelText.transform.Translate(imageBotLeftDirection - imageCenterDirection);
-                        label.transform.rotation = picture.transform.rotation;
+                        label.transform.position = objHitInfo.point;
                     }
-                    // Paint the rays on the 3d world
-                    /*
-                    _laser.shootLaserFrom(headPos, imageCenterDirection, 10f, _centerMaterial);
-                    _laser.shootLaserFrom(headPos, imageTopLeftDirection, 10f, _topLeftMaterial);
-                    _laser.shootLaserFrom(headPos, imageTopRightDirection, 10f, _topRightMaterial);
-                    _laser.shootLaserFrom(headPos, imageBotLeftDirection, 10f, _botLeftMaterial);
-                    _laser.shootLaserFrom(headPos, imageBotRightDirection, 10f, _botRightMaterial);
-                    */
 
-                }, false);
-            }
+                    label.transform.rotation = picture.transform.rotation;
+
+                    _laser.shootLaserFrom(headPos, direction, Vector3.Distance(headPos, direction));
+                }
+                // Paint the rays on the 3d world
+                
+                /*
+                _laser.shootLaserFrom(headPos, imageCenterDirection, 10f, _centerMaterial);
+                _laser.shootLaserFrom(headPos, imageTopLeftDirection, 10f, _topLeftMaterial);
+                _laser.shootLaserFrom(headPos, imageTopRightDirection, 10f, _topRightMaterial);
+                _laser.shootLaserFrom(headPos, imageBotLeftDirection, 10f, _botLeftMaterial);
+                _laser.shootLaserFrom(headPos, imageBotRightDirection, 10f, _botRightMaterial);
+                */
+
+            }, false);
+
 
         }
         finally
@@ -321,10 +325,10 @@ public class ProjectionExample : MonoBehaviour
     /// <param name="projectionMatrix">Projection matrix</param>
     /// <param name="predictions">List of predictions</param>
     /// <returns></returns>
-    private IEnumerable<Tuple<string, float, Vector3>> GetRectCentersInWorldCoordinates(Matrix4x4 camera2WorldMatrix, Matrix4x4 projectionMatrix,  IList<YoloBoundingBox> predictions)
+    private IEnumerable<Tuple<string, float, Vector3>> GetRectCentersInWorldCoordinates(Matrix4x4 camera2WorldMatrix, Matrix4x4 projectionMatrix, IList<YoloBoundingBox> predictions)
     {
 
-        foreach(var p in predictions)
+        foreach (var p in predictions)
         {
             var centerX = p.X + p.Width / 2;
             var centerY = p.Y + p.Height / 2;
