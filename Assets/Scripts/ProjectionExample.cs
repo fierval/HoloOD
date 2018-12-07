@@ -24,13 +24,6 @@ public class ProjectionExample : MonoBehaviour
 {
     object sync = new object();
 
-    // "Injected materials"
-    public Material _topLeftMaterial;
-    public Material _topRightMaterial;
-    public Material _botLeftMaterial;
-    public Material _botRightMaterial;
-    public Material _centerMaterial;
-
     private HoloLensCameraStream.Resolution _resolution;
     private VideoCapture _videoCapture = null;
     private IntPtr _spatialCoordinateSystemPtr;
@@ -260,15 +253,6 @@ public class ProjectionExample : MonoBehaviour
 #endif
             var shootingDirections = GetRectCentersInWorldCoordinates(camera2WorldMatrix, projectionMatrix, predictions);
 
-            // Get the ray directions
-            /*
-            Vector3 imageCenterDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width / 2, _resolution.height / 2));
-            Vector3 imageTopLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0, 0));
-            Vector3 imageTopRightDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width, 0));
-            Vector3 imageBotLeftDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(0, _resolution.height));
-            Vector3 imageBotRightDirection = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, _resolution, new Vector2(_resolution.width, _resolution.height));
-            */
-
             // position text
             Application.InvokeOnAppThread(() =>
             {
@@ -295,17 +279,8 @@ public class ProjectionExample : MonoBehaviour
 
                     label.transform.rotation = picture.transform.rotation;
 
-                    _laser.shootLaserFrom(headPos, direction, Vector3.Distance(headPos, direction));
+                    _laser.shootLaser(headPos, direction, 10.0f, confidence, DetectionThreshold);
                 }
-                // Paint the rays on the 3d world
-                
-                /*
-                _laser.shootLaserFrom(headPos, imageCenterDirection, 10f, _centerMaterial);
-                _laser.shootLaserFrom(headPos, imageTopLeftDirection, 10f, _topLeftMaterial);
-                _laser.shootLaserFrom(headPos, imageTopRightDirection, 10f, _topRightMaterial);
-                _laser.shootLaserFrom(headPos, imageBotLeftDirection, 10f, _botLeftMaterial);
-                _laser.shootLaserFrom(headPos, imageBotRightDirection, 10f, _botRightMaterial);
-                */
 
             }, false);
 

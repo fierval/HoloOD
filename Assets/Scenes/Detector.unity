@@ -306,7 +306,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _lineWidthMultiplier: 0.02
-  _laserMaterial: {fileID: 2100000, guid: facf14d3152ea6b4381049fec17f3cea, type: 2}
+  _laserMaterials:
+  - {fileID: 2100000, guid: facf14d3152ea6b4381049fec17f3cea, type: 2}
+  - {fileID: 2100000, guid: a505d9aa5160e0e4db8c74d9a916e069, type: 2}
+  - {fileID: 2100000, guid: 51b5984f13d5f6d42a8c1225e88ad130, type: 2}
+  - {fileID: 2100000, guid: 536e577ffbc18cb418042f382d547795, type: 2}
   useRayCast: 1
 --- !u!114 &1345120985
 MonoBehaviour:
@@ -330,11 +334,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 97f4f20e19e03ea4ca9bfb8c211c76ae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _topLeftMaterial: {fileID: 2100000, guid: 536e577ffbc18cb418042f382d547795, type: 2}
-  _topRightMaterial: {fileID: 2100000, guid: facf14d3152ea6b4381049fec17f3cea, type: 2}
-  _botLeftMaterial: {fileID: 2100000, guid: 0a67b708600e3c241bc22323cad9f843, type: 2}
-  _botRightMaterial: {fileID: 2100000, guid: 51b5984f13d5f6d42a8c1225e88ad130, type: 2}
-  _centerMaterial: {fileID: 2100000, guid: a505d9aa5160e0e4db8c74d9a916e069, type: 2}
   DetectionThreshold: 0.1
 --- !u!1 &1882314575
 GameObject:
