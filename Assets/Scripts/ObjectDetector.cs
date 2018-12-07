@@ -14,6 +14,7 @@ using Windows.AI.MachineLearning;
 
 public  class ObjectDetector : Singleton<ObjectDetector>
 {
+    [Range(0f, .99f)]
     public float DetectionThreshold;
 
 #if UNITY_WSA && !UNITY_EDITOR
@@ -30,11 +31,6 @@ public  class ObjectDetector : Singleton<ObjectDetector>
      readonly Uri modelFile = new Uri("ms-appx:///Data/StreamingAssets/Tiny-YOLOv2.onnx");
 #endif
      YoloWinMlParser parser = new YoloWinMlParser();
-
-     ObjectDetector()
-    {
-       
-    }
 
     public  async Task<bool> LoadModel()
     {
