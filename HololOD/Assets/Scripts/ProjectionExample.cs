@@ -252,24 +252,12 @@ public class ProjectionExample : MonoBehaviour
 
 #endif
             var shootingDirections = GetRectCentersInWorldCoordinates(camera2WorldMatrix, projectionMatrix, predictions);
-            var holoObj = new Holo()
-            {
-                confidences = predictions.Select(p => p.Confidence).ToList(),
-                labels = predictions.Select(p => p.Label).ToList(),
-                rects = predictions.Select(p => p.Rect).ToList(),
-                x = picture.transform.position.x,
-                y = picture.transform.position.y,
-                z = picture.transform.position.z,
-                image = _latestImageBytes,
-            };
-
-            string path = Path.Combine(Application.persistentDataPath, $"Holo{captureNum++}.json");
-
-            HoloSaver.Instance.SaveHolograms(new List<Holo>() { holoObj }, path);
 
             // position text
             UnityEngine.WSA.Application.InvokeOnAppThread(() =>
             {
+                SaveHologram(picture, predictions);
+
                 Vector3 headPos = Camera.main.transform.position;
                 foreach (var labelConfidenceDirection in shootingDirections)
                 {
@@ -304,6 +292,30 @@ public class ProjectionExample : MonoBehaviour
         {
             sample.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Serializes the current object with predictions
+    /// </summary>
+    /// <param name="picture"></param>
+    /// <param name="predictions"></param>
+    private void SaveHologram(GameObject picture, IList<YoloBoundingBox> predictions)
+    {
+        var texture = picture.GetComponent<Renderer>().sharedMaterial.GetTexture("_MainTex") as Texture2D;
+        var holoObj = new Holo()
+        {
+            confidences = predictions.Select(p => p.Confidence).ToList(),
+            labels = predictions.Select(p => p.Label).ToList(),
+            predictedRects = predictions.Select(p => p.Rect).ToList(),
+            image = texture.EncodeToJPG(),
+            x = picture.transform.position.x,
+            y = picture.transform.position.y,
+            z = picture.transform.position.z,
+        };
+
+        string path = Path.Combine(Application.persistentDataPath, $"Holo{captureNum++}.json");
+
+        HoloSaver.Instance.SaveHologram(holoObj, path);
     }
 
     /// <summary>
