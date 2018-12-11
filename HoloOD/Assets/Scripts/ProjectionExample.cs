@@ -199,7 +199,7 @@ public class ProjectionExample : MonoBehaviour
 
             UnityEngine.WSA.Application.InvokeOnAppThread(() =>
             {
-                picture = CreateHologram(s, ref camera2WorldMatrix, projectionMatrix);
+                picture = CreateHologram(s.data, camera2WorldMatrix, projectionMatrix);
 
                 Vector3 inverseNormal = -camera2WorldMatrix.GetColumn(2);
 
@@ -286,7 +286,7 @@ public class ProjectionExample : MonoBehaviour
     /// <param name="camera2WorldMatrix">Camera -> World coordinate transformation</param>
     /// <param name="projectionMatrix">Projection matrix for main camera</param>
     /// <returns></returns>
-    private GameObject CreateHologram(SampleStruct s, ref Matrix4x4 camera2WorldMatrix, Matrix4x4 projectionMatrix)
+    private GameObject CreateHologram(byte [] data, Matrix4x4 camera2WorldMatrix, Matrix4x4 projectionMatrix)
     {
         GameObject picture = GameObject.CreatePrimitive(PrimitiveType.Quad);
         var pictureRenderer = picture.GetComponent<Renderer>() as Renderer;
@@ -294,7 +294,7 @@ public class ProjectionExample : MonoBehaviour
         var pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false);
 
         // Upload bytes to texture
-        pictureTexture.LoadRawTextureData(s.data);
+        pictureTexture.LoadRawTextureData(data);
         pictureTexture.wrapMode = TextureWrapMode.Clamp;
         pictureTexture.Apply();
 
@@ -320,7 +320,7 @@ public class ProjectionExample : MonoBehaviour
             confidences = predictions.Select(p => p.Confidence).ToList(),
             labels = predictions.Select(p => p.Label).ToList(),
             predictedRects = predictions.Select(p => p.Rect).ToList(),
-            image = texture,
+            image = _latestImageBytes,
             cameraToWorldMatrix = s.camera2WorldMatrix,
             projectionMatrix = s.projectionMatrix,
             x = picture.transform.position.x,
@@ -333,10 +333,14 @@ public class ProjectionExample : MonoBehaviour
         HoloSaver.Instance.SaveHologram(holoObj, path);
     }
 
-    //TODO: Add transformation matricies to serialization
-    private void RestoreHologram(string path)
+    private GameObject RestoreHologram(string path)
     {
         var holo = HoloSaver.Instance.RestoreHologram(path);
+        Matrix4x4 projectionMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(holo.projectionMatrix);
+        Matrix4x4 camera2WorldMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(holo.cameraToWorldMatrix);
+        GameObject picture = CreateHologram(holo.image, camera2WorldMatrix, projectionMatrix);
+        return picture;
+
     }
 
     /// <summary>

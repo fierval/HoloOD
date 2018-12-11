@@ -31,7 +31,7 @@ public class Holo
     public float[] projectionMatrix;
 
     [JsonIgnore]
-    public Texture2D image;
+    public byte [] image;
 
     //Vector3 - position of the quad
     public float x;
@@ -64,7 +64,7 @@ public class HoloSaver : Singleton<HoloSaver>
 
             // now the image
             string imagePath = Path.ChangeExtension(path, ".jpg");
-            File.WriteAllBytes(imagePath, holo.image.EncodeToJPG());
+            File.WriteAllBytes(imagePath, holo.image);
         }
         catch (Exception e)
         {
@@ -76,14 +76,12 @@ public class HoloSaver : Singleton<HoloSaver>
     public Holo RestoreHologram(string path)
     {
         string imagePath = Path.ChangeExtension(path, ".jpg");
-        byte[] imageBytes = File.ReadAllBytes(imagePath);
 
         Holo holo = JsonConvert.DeserializeObject<Holo>(path);
 #if UNITY_WSA && !UNITY_EDITOR
         holo.predictedRects = ConvertToUnityRects(holo.rects);
-        holo.image = new Texture2D();
 #endif
-        holo.image.LoadImage(imageBytes);
+        holo.image = File.ReadAllBytes(imagePath);
 
         return holo;
     }
