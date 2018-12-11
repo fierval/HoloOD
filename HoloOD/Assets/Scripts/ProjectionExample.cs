@@ -282,10 +282,9 @@ public class ProjectionExample : MonoBehaviour
     /// <summary>
     /// Creates a quad hologram to display image capture
     /// </summary>
-    /// <param name="s">Sample Struct that wraps captured video frame</param>
-    /// <param name="camera2WorldMatrix">Camera -> World coordinate transformation</param>
-    /// <param name="projectionMatrix">Projection matrix for main camera</param>
-    /// <returns></returns>
+    /// <param name="data">Raw bytes of the image</param>
+    /// <param name="camera2WorldMatrix">Camera -> World matrix</param>
+    /// <param name="projectionMatrix"> Campera projection matrix</param>
     private GameObject CreateHologram(byte [] data, Matrix4x4 camera2WorldMatrix, Matrix4x4 projectionMatrix)
     {
         GameObject picture = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -297,7 +296,6 @@ public class ProjectionExample : MonoBehaviour
         pictureTexture.LoadRawTextureData(data);
         pictureTexture.wrapMode = TextureWrapMode.Clamp;
         pictureTexture.Apply();
-
 
         // Set material parameters
         pictureRenderer.sharedMaterial.SetTexture("_MainTex", pictureTexture);
