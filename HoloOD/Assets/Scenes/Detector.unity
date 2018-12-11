@@ -307,6 +307,7 @@ GameObject:
   - component: {fileID: 1654794689}
   - component: {fileID: 1654794688}
   - component: {fileID: 1654794692}
+  - component: {fileID: 1654794693}
   m_Layer: 0
   m_Name: HoloDetector
   m_TagString: Untagged
@@ -388,6 +389,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a057c4c6b5f79574b83317dcfe67e48b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &1654794693
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 1654794686}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f387d25a5f9c58438043b216f7badf9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1001 &1896798892
