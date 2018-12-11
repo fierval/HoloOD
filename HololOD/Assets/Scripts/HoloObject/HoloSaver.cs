@@ -10,10 +10,15 @@ using System.IO;
 [JsonObject]
 public class Holo
 {
-    public string [] labels;
-    public float [] confidences;
-    public Rect [] rects;
+    public List<string> labels;
+    public List<float> confidences;
+    public List<Rect> rects;
     public byte[] image;
+
+    //Vector3 - position of the quad
+    public float x;
+    public float y;
+    public float z;
 }
 
 public class HoloSaver : Singleton<HoloSaver>

@@ -6,8 +6,9 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Collections;
 using System.Reflection;
-using Application = UnityEngine.WSA.Application;
 using Yolo;
+using System.IO;
+using Application = UnityEngine.Application;
 
 #if UNITY_WSA && !UNITY_EDITOR
 using Windows.Media.Capture.Frames;
@@ -38,6 +39,7 @@ public class ProjectionExample : MonoBehaviour
     private RaycastLaser _laser;
     private CameraParameters cameraParams;
     private bool processingFrame = false;
+    private int captureNum;
 
     // This struct store frame related data
     private class SampleStruct
@@ -55,7 +57,7 @@ public class ProjectionExample : MonoBehaviour
         _gestureRecognizer.StartCapturingGestures();
 
         videoFrameInfo = typeof(VideoCaptureSample).GetTypeInfo().DeclaredProperties.Where(x => x.Name == "videoFrame").Single();
-
+        captureNum = 0;
     }
 
     private void StartVideoCapture()
@@ -195,7 +197,7 @@ public class ProjectionExample : MonoBehaviour
             // Stop the video and reproject the 5 pixels
             GameObject picture = null;
 
-            Application.InvokeOnAppThread(() =>
+            UnityEngine.WSA.Application.InvokeOnAppThread(() =>
             {
                 picture = GameObject.CreatePrimitive(PrimitiveType.Quad);
                 var pictureRenderer = picture.GetComponent<Renderer>() as Renderer;
@@ -250,9 +252,23 @@ public class ProjectionExample : MonoBehaviour
 
 #endif
             var shootingDirections = GetRectCentersInWorldCoordinates(camera2WorldMatrix, projectionMatrix, predictions);
+            var holoObj = new Holo()
+            {
+                confidences = predictions.Select(p => p.Confidence).ToList(),
+                labels = predictions.Select(p => p.Label).ToList(),
+                rects = predictions.Select(p => p.Rect).ToList(),
+                x = picture.transform.position.x,
+                y = picture.transform.position.y,
+                z = picture.transform.position.z,
+                image = _latestImageBytes,
+            };
+
+            string path = Path.Combine(Application.persistentDataPath, $"Holo{captureNum++}.json");
+
+            HoloSaver.Instance.SaveHolograms(new List<Holo>() { holoObj }, path);
 
             // position text
-            Application.InvokeOnAppThread(() =>
+            UnityEngine.WSA.Application.InvokeOnAppThread(() =>
             {
                 Vector3 headPos = Camera.main.transform.position;
                 foreach (var labelConfidenceDirection in shootingDirections)
