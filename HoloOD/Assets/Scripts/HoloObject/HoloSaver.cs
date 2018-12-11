@@ -6,8 +6,10 @@ using UnityEngine;
 using HoloToolkit.Unity;
 using Newtonsoft.Json;
 using System.IO;
+#if UNITY_WSA && !UNITY_EDITOR
 using Windows.Foundation;
 using Rect = Windows.Foundation.Rect;
+#endif
 
 [JsonObject]
 public class Holo
@@ -25,8 +27,11 @@ public class Holo
     /// </summary>
     public List<Rect> rects;
 
+    public float[] cameraToWorldMatrix;
+    public float[] projectionMatrix;
+
     [JsonIgnore]
-    public byte[] image;
+    public Texture2D image;
 
     //Vector3 - position of the quad
     public float x;
@@ -36,21 +41,30 @@ public class Holo
 
 public class HoloSaver : Singleton<HoloSaver>
 {
-    List<Rect> ConvertRects(List<UnityEngine.Rect> predictedRects)
+#if UNITY_WSA && !UNITY_EDITOR
+    List<Rect> ConvertToWindowsRects(List<UnityEngine.Rect> predictedRects)
     {
         return predictedRects.Select(r => new Rect { X = r.xMin, Y = r.yMin, Height = r.height, Width = r.width}).ToList();
     }
+
+    List<UnityEngine.Rect> ConvertToUnityRects(List<Rect> rects)
+    {
+        return rects.Select(r => new UnityEngine.Rect { xMin = (float) r.X, yMin = (float)r.Y, height = (float) r.Height, width = (float) r.Width }).ToList();
+    }
+#endif
     public void SaveHologram(Holo holo, string path)
     {
         try
         {
-            holo.rects = ConvertRects(holo.predictedRects);
+#if UNITY_WSA && !UNITY_EDITOR
+            holo.rects = ConvertToWindowsRects(holo.predictedRects);
+#endif
             string json = JsonConvert.SerializeObject(holo, Formatting.Indented);
             File.WriteAllText(path, json);
 
             // now the image
             string imagePath = Path.ChangeExtension(path, ".jpg");
-            File.WriteAllBytes(imagePath, holo.image);
+            File.WriteAllBytes(imagePath, holo.image.EncodeToJPG());
         }
         catch (Exception e)
         {
@@ -59,10 +73,19 @@ public class HoloSaver : Singleton<HoloSaver>
 
     }
 
-    public List<Holo> RestoreHolograms(string path)
+    public Holo RestoreHologram(string path)
     {
-        List<Holo> holograms = JsonConvert.DeserializeObject<List<Holo>>(path);
-        return holograms;
+        string imagePath = Path.ChangeExtension(path, ".jpg");
+        byte[] imageBytes = File.ReadAllBytes(imagePath);
+
+        Holo holo = JsonConvert.DeserializeObject<Holo>(path);
+#if UNITY_WSA && !UNITY_EDITOR
+        holo.predictedRects = ConvertToUnityRects(holo.rects);
+        holo.image = new Texture2D();
+#endif
+        holo.image.LoadImage(imageBytes);
+
+        return holo;
     }
 }
 

@@ -199,22 +199,7 @@ public class ProjectionExample : MonoBehaviour
 
             UnityEngine.WSA.Application.InvokeOnAppThread(() =>
             {
-                picture = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                var pictureRenderer = picture.GetComponent<Renderer>() as Renderer;
-                pictureRenderer.material = new Material(Shader.Find("AR/HolographicImageBlend"));
-                var pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false);
-
-                // Upload bytes to texture
-                pictureTexture.LoadRawTextureData(s.data);
-                pictureTexture.wrapMode = TextureWrapMode.Clamp;
-                pictureTexture.Apply();
-
-
-                // Set material parameters
-                pictureRenderer.sharedMaterial.SetTexture("_MainTex", pictureTexture);
-                pictureRenderer.sharedMaterial.SetMatrix("_WorldToCameraMatrix", camera2WorldMatrix.inverse);
-                pictureRenderer.sharedMaterial.SetMatrix("_CameraProjectionMatrix", projectionMatrix);
-                pictureRenderer.sharedMaterial.SetFloat("_VignetteScale", 0f);
+                picture = CreateHologram(s, ref camera2WorldMatrix, projectionMatrix);
 
                 Vector3 inverseNormal = -camera2WorldMatrix.GetColumn(2);
 
@@ -256,8 +241,8 @@ public class ProjectionExample : MonoBehaviour
             // position text
             UnityEngine.WSA.Application.InvokeOnAppThread(() =>
             {
-                SaveHologram(picture, predictions);
-
+                SaveHologram(picture, s, predictions);
+                
                 Vector3 headPos = Camera.main.transform.position;
                 foreach (var labelConfidenceDirection in shootingDirections)
                 {
@@ -295,11 +280,39 @@ public class ProjectionExample : MonoBehaviour
     }
 
     /// <summary>
+    /// Creates a quad hologram to display image capture
+    /// </summary>
+    /// <param name="s">Sample Struct that wraps captured video frame</param>
+    /// <param name="camera2WorldMatrix">Camera -> World coordinate transformation</param>
+    /// <param name="projectionMatrix">Projection matrix for main camera</param>
+    /// <returns></returns>
+    private GameObject CreateHologram(SampleStruct s, ref Matrix4x4 camera2WorldMatrix, Matrix4x4 projectionMatrix)
+    {
+        GameObject picture = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        var pictureRenderer = picture.GetComponent<Renderer>() as Renderer;
+        pictureRenderer.material = new Material(Shader.Find("AR/HolographicImageBlend"));
+        var pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false);
+
+        // Upload bytes to texture
+        pictureTexture.LoadRawTextureData(s.data);
+        pictureTexture.wrapMode = TextureWrapMode.Clamp;
+        pictureTexture.Apply();
+
+
+        // Set material parameters
+        pictureRenderer.sharedMaterial.SetTexture("_MainTex", pictureTexture);
+        pictureRenderer.sharedMaterial.SetMatrix("_WorldToCameraMatrix", camera2WorldMatrix.inverse);
+        pictureRenderer.sharedMaterial.SetMatrix("_CameraProjectionMatrix", projectionMatrix);
+        pictureRenderer.sharedMaterial.SetFloat("_VignetteScale", 0f);
+        return picture;
+    }
+
+    /// <summary>
     /// Serializes the current object with predictions
     /// </summary>
     /// <param name="picture"></param>
     /// <param name="predictions"></param>
-    private void SaveHologram(GameObject picture, IList<YoloBoundingBox> predictions)
+    private void SaveHologram(GameObject picture, SampleStruct s, IList<YoloBoundingBox> predictions)
     {
         var texture = picture.GetComponent<Renderer>().sharedMaterial.GetTexture("_MainTex") as Texture2D;
         var holoObj = new Holo()
@@ -307,7 +320,9 @@ public class ProjectionExample : MonoBehaviour
             confidences = predictions.Select(p => p.Confidence).ToList(),
             labels = predictions.Select(p => p.Label).ToList(),
             predictedRects = predictions.Select(p => p.Rect).ToList(),
-            image = texture.EncodeToJPG(),
+            image = texture,
+            cameraToWorldMatrix = s.camera2WorldMatrix,
+            projectionMatrix = s.projectionMatrix,
             x = picture.transform.position.x,
             y = picture.transform.position.y,
             z = picture.transform.position.z,
@@ -316,6 +331,12 @@ public class ProjectionExample : MonoBehaviour
         string path = Path.Combine(Application.persistentDataPath, $"Holo{captureNum++}.json");
 
         HoloSaver.Instance.SaveHologram(holoObj, path);
+    }
+
+    //TODO: Add transformation matricies to serialization
+    private void RestoreHologram(string path)
+    {
+        var holo = HoloSaver.Instance.RestoreHologram(path);
     }
 
     /// <summary>
