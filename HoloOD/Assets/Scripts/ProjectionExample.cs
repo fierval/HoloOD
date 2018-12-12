@@ -36,7 +36,7 @@ public class ProjectionExample : MonoBehaviour
 
     private PropertyInfo videoFrameInfo;
 
-    private RaycastLaser _laser;
+    private RaycastLaser laser;
     private CameraParameters cameraParams;
     private bool processingFrame = false;
     private int captureNum;
@@ -72,7 +72,7 @@ public class ProjectionExample : MonoBehaviour
         CameraStreamHelper.Instance.GetVideoCaptureAsync(OnVideoCaptureCreated);
 
         // Set the laser
-        _laser = RaycastLaser.Instance;
+        laser = RaycastLaser.Instance;
 
         Label = GameObject.FindGameObjectWithTag("DetectedObjects");
 
@@ -266,7 +266,7 @@ public class ProjectionExample : MonoBehaviour
 
                     label.transform.rotation = picture.transform.rotation;
 
-                    _laser.shootLaser(headPos, direction, 10.0f, confidence, ObjectDetector.Instance.DetectionThreshold);
+                    laser.shootLaser(headPos, direction, 10.0f, confidence, ObjectDetector.Instance.DetectionThreshold);
                 }
 
             }, false);
