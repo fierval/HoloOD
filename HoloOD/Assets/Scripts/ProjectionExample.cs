@@ -9,6 +9,7 @@ using System.Reflection;
 using Yolo;
 using System.IO;
 using Application = UnityEngine.Application;
+using HoloToolkit.Unity;
 
 #if UNITY_WSA && !UNITY_EDITOR
 using Windows.Media.Capture.Frames;
@@ -21,16 +22,16 @@ using Windows.Graphics.Imaging;
 /// using the extrinsic parameters and projection matrices.
 /// Whereas the app is running, if you tap on the image, this set of points is reprojected into the world.
 /// </summary>
-public class ProjectionExample : MonoBehaviour
+public class ProjectionExample : Singleton<ProjectionExample>
 {
     object sync = new object();
+    const string FilePrefix = "Holo";
 
     private HoloLensCameraStream.Resolution _resolution;
-    private VideoCapture _videoCapture = null;
-    private IntPtr _spatialCoordinateSystemPtr;
-    private byte[] _latestImageBytes;
+    private VideoCapture videoCapture = null;
+    private IntPtr spatialCoordinateSystemPtr;
+    private byte[] latestImageBytes;
     private bool stopVideo;
-    private UnityEngine.XR.WSA.Input.GestureRecognizer _gestureRecognizer;
 
     GameObject Label;
 
@@ -48,28 +49,30 @@ public class ProjectionExample : MonoBehaviour
         public byte[] data;
     }
 
-    void Awake()
+    protected override void Awake()
     {
-        // Create and set the gesture recognizer
-        _gestureRecognizer = new UnityEngine.XR.WSA.Input.GestureRecognizer();
-        _gestureRecognizer.TappedEvent += (source, tapCount, headRay) => { Debug.Log("Tapped"); StartCoroutine(StopVideoMode()); };
-        _gestureRecognizer.SetRecognizableGestures(UnityEngine.XR.WSA.Input.GestureSettings.Tap);
-        _gestureRecognizer.StartCapturingGestures();
+        base.Awake();
 
         videoFrameInfo = typeof(VideoCaptureSample).GetTypeInfo().DeclaredProperties.Where(x => x.Name == "videoFrame").Single();
         captureNum = 0;
     }
 
-    private void StartVideoCapture()
+    /// <summary>
+    /// Start detection was clicked
+    /// </summary>
+    public void StartDetection()
     {
-        _videoCapture.StartVideoModeAsync(cameraParams, OnVideoModeStarted);
+        if (videoCapture == null)
+        {
+            CameraStreamHelper.Instance.GetVideoCaptureAsync(OnVideoCaptureCreated);
+        }
+        StartCoroutine(StartOrStopVideoMode());
     }
 
     void Start()
     {
         //Fetch a pointer to Unity's spatial coordinate system if you need pixel mapping
-        _spatialCoordinateSystemPtr = UnityEngine.XR.WSA.WorldManager.GetNativeISpatialCoordinateSystemPtr();
-        CameraStreamHelper.Instance.GetVideoCaptureAsync(OnVideoCaptureCreated);
+        spatialCoordinateSystemPtr = UnityEngine.XR.WSA.WorldManager.GetNativeISpatialCoordinateSystemPtr();
 
         // Set the laser
         laser = RaycastLaser.Instance;
@@ -93,7 +96,7 @@ public class ProjectionExample : MonoBehaviour
 #endif
 
     // This coroutine will toggle the video on/off
-    private IEnumerator StopVideoMode()
+    private IEnumerator StartOrStopVideoMode()
     {
         yield return new WaitForSeconds(0.65f);
         stopVideo = !stopVideo;
@@ -101,17 +104,18 @@ public class ProjectionExample : MonoBehaviour
         if (!stopVideo)
         {
             processingFrame = false;
-            OnVideoCaptureCreated(_videoCapture);
+            OnVideoCaptureCreated(videoCapture);
         }
     }
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
-        if (_videoCapture == null)
+        if (videoCapture == null)
             return;
 
-        _videoCapture.FrameSampleAcquired += null;
-        _videoCapture.Dispose();
+        videoCapture.FrameSampleAcquired += null;
+        videoCapture.Dispose();
+        base.OnDestroy();
     }
 
     private void OnVideoCaptureCreated(VideoCapture v)
@@ -121,17 +125,17 @@ public class ProjectionExample : MonoBehaviour
             Debug.LogError("No VideoCapture found");
             return;
         }
-        if (_videoCapture == null)
+        if (videoCapture == null)
         {
-            _videoCapture = v;
+            videoCapture = v;
 
             //Request the spatial coordinate ptr if you want fetch the camera and set it if you need to 
-            CameraStreamHelper.Instance.SetNativeISpatialCoordinateSystemPtr(_spatialCoordinateSystemPtr);
+            CameraStreamHelper.Instance.SetNativeISpatialCoordinateSystemPtr(spatialCoordinateSystemPtr);
 
             _resolution = CameraStreamHelper.Instance.GetLowestResolution();
             float frameRate = CameraStreamHelper.Instance.GetHighestFrameRate(_resolution);
 
-            _videoCapture.FrameSampleAcquired += OnFrameSampleAcquired;
+            videoCapture.FrameSampleAcquired += OnFrameSampleAcquired;
 
             cameraParams = new CameraParameters();
             cameraParams.cameraResolutionHeight = _resolution.height;
@@ -140,7 +144,7 @@ public class ProjectionExample : MonoBehaviour
             cameraParams.pixelFormat = CapturePixelFormat.BGRA32;
         }
 
-        _videoCapture.StartVideoModeAsync(cameraParams, OnVideoModeStarted);
+        videoCapture.StartVideoModeAsync(cameraParams, OnVideoModeStarted);
     }
 
     private void OnVideoModeStarted(VideoCaptureResult result)
@@ -177,13 +181,13 @@ public class ProjectionExample : MonoBehaviour
         try
         {
             // Allocate byteBuffer
-            if (_latestImageBytes == null || _latestImageBytes.Length < sample.dataLength)
-                _latestImageBytes = new byte[sample.dataLength];
+            if (latestImageBytes == null || latestImageBytes.Length < sample.dataLength)
+                latestImageBytes = new byte[sample.dataLength];
 
             // Fill frame struct 
             SampleStruct s = new SampleStruct();
-            sample.CopyRawImageDataIntoBuffer(_latestImageBytes);
-            s.data = _latestImageBytes;
+            sample.CopyRawImageDataIntoBuffer(latestImageBytes);
+            s.data = latestImageBytes;
 
             // Get the cameraToWorldMatrix and projectionMatrix
             if (!sample.TryGetCameraToWorldMatrix(out s.camera2WorldMatrix) || !sample.TryGetProjectionMatrix(out s.projectionMatrix))
@@ -211,7 +215,7 @@ public class ProjectionExample : MonoBehaviour
 
             }, false);
 
-            _videoCapture.StopVideoModeAsync(onVideoModeStopped);
+            videoCapture.StopVideoModeAsync(onVideoModeStopped);
             IList<Yolo.YoloBoundingBox> predictions = null;
 
 #if UNITY_WSA && !UNITY_EDITOR
@@ -318,7 +322,7 @@ public class ProjectionExample : MonoBehaviour
             confidences = predictions.Select(p => p.Confidence).ToList(),
             labels = predictions.Select(p => p.Label).ToList(),
             predictedRects = predictions.Select(p => p.Rect).ToList(),
-            image = _latestImageBytes,
+            image = latestImageBytes,
             cameraToWorldMatrix = s.camera2WorldMatrix,
             projectionMatrix = s.projectionMatrix,
             x = picture.transform.position.x,
@@ -326,9 +330,29 @@ public class ProjectionExample : MonoBehaviour
             z = picture.transform.position.z,
         };
 
-        string path = Path.Combine(Application.persistentDataPath, $"Holo{captureNum++}.json");
+        string path = Path.Combine(Application.persistentDataPath, $"{FilePrefix}{captureNum++}.json");
 
         HoloSaver.Instance.SaveHologram(holoObj, path);
+    }
+
+    List<string> GetSceneFiles()
+    {
+        return Directory.GetFiles(Application.persistentDataPath, $"{FilePrefix}*.*").ToList();
+    }
+
+    public void RestoreScene()
+    {
+        var files = GetSceneFiles().Where(p => Path.GetExtension(p) == ".json").ToList();
+        files.ForEach(f => RestoreHologram(f));
+    }
+
+    /// <summary>
+    /// Simply delete all stored files
+    /// </summary>
+    public void ForgetScene()
+    {
+        var files = GetSceneFiles();
+        files.ForEach(f => File.Delete(f));
     }
 
     private GameObject RestoreHologram(string path)
