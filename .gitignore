@@ -24,6 +24,8 @@ bld/
 [Oo]bj/
 [Ll]og/
 HoloToolkit/
+HoloToolkit-Examples/
+HoloToolkit-Preview/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
