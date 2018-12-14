@@ -43,7 +43,7 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     private bool processingFrame = false;
     private int captureNum;
 
-    private List<GameObject> pictureCollection = new List<GameObject>();
+    private List<Tuple<GameObject, List<LineRenderer>, List<GameObject>>> pictureCollection = new List<Tuple<GameObject, List<LineRenderer>, List<GameObject>>>();
     // This struct store frame related data
     private class SampleStruct
     {
@@ -218,7 +218,7 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
                 picture.transform.position = imagePosition;
                 picture.transform.rotation = Quaternion.LookRotation(inverseNormal, camera2WorldMatrix.GetColumn(1));
 
-            }, false);
+            }, true);
 
             videoCapture.StopVideoModeAsync(onVideoModeStopped);
             IList<Yolo.YoloBoundingBox> predictions = null;
@@ -250,7 +250,7 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
                 SaveHologram(picture, s.camera2WorldMatrix, s.projectionMatrix, predictions);
 
                 DisplayPredictions(camera2WorldMatrix, projectionMatrix, picture, predictions, _resolution, Camera.main.transform.position);
-            }, false);
+            }, true);
 
         }
         finally
@@ -263,6 +263,10 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     {
         var shootingDirections = GetRectCentersInWorldCoordinates(camera2WorldMatrix, projectionMatrix, size, predictions);
 
+        var lineRenderers = new List<LineRenderer>();
+        var labels = new List<GameObject>();
+        pictureCollection.Add(new Tuple<GameObject, List<LineRenderer>, List<GameObject>>(picture, lineRenderers, labels));
+            
         // position text
         foreach (var labelConfidenceDirection in shootingDirections)
         {
@@ -272,7 +276,8 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
             Vector3 direction = labelConfidenceDirection.Item3;
 
             // shoot the laser
-            var label = Instantiate(Label).GetComponent<TextMesh>();
+            var labelParent = Instantiate(Label);
+            var label  = labelParent.GetComponent<TextMesh>();
 
             label.text = $"{labelText}: {confidence: 0.00}";
             RaycastHit objHitInfo;
@@ -286,7 +291,10 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
 
             label.transform.rotation = picture.transform.rotation;
 
-            laser.shootLaser(headPos, direction, 10.0f, confidence, ObjectDetector.Instance.DetectionThreshold);
+            var lr = laser.shootLaser(headPos, direction, 10.0f, confidence, ObjectDetector.Instance.DetectionThreshold);
+
+            lineRenderers.Add(lr);
+            labels.Add(labelParent);
         }
     }
 
@@ -314,7 +322,6 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
         pictureRenderer.sharedMaterial.SetMatrix("_CameraProjectionMatrix", projectionMatrix);
         pictureRenderer.sharedMaterial.SetFloat("_VignetteScale", 0f);
 
-        pictureCollection.Add(picture);
         return picture;
     }
 
@@ -375,7 +382,12 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     {
         var files = GetSceneFiles();
         files.ForEach(f => File.Delete(f));
-        pictureCollection.ForEach(p => p.SetActive(false));
+        pictureCollection.ForEach(p => {
+            p.Item1.SetActive(false);
+            p.Item2.ForEach(lr => lr.enabled = false);
+            p.Item3.ForEach(l => l.SetActive(false));
+        });
+
         pictureCollection.Clear();
         captureNum = 0;
     }
