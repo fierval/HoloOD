@@ -1,18 +1,20 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using HoloToolkit.Unity.Receivers;
 using HoloToolkit.Unity.InputModule;
 using System;
 
-enum ObjectNames : int
+public enum ObjectNames : int
 {
-    StartDetection = 0,
+    HideToolbar = 0,
+    ShowToolbar,
     RestoreScene,
     ForgetScene
 }
 
-public class CommandDispatcher : InteractionReceiver
+public class CommandDispatcher : InteractionReceiver, ISpeechHandler
 {
     ObjectNames GetObject(string objectName)
     {
@@ -20,19 +22,39 @@ public class CommandDispatcher : InteractionReceiver
         string normalizedName = objectName;
         if (idxSpace >= 0)
         {
-            normalizedName = objectName.Remove(idxSpace);
+            normalizedName = objectName.Remove(idxSpace, 1);
         }
 
-       return (ObjectNames) Enum.Parse(typeof(ObjectNames), normalizedName);
+        return (ObjectNames)Enum.Parse(typeof(ObjectNames), normalizedName);
     }
 
     protected override void InputClicked(GameObject obj, InputClickedEventData eventData)
     {
-        var activation = GetObject(obj.name);
-        switch (activation)
+        if (obj == null)
         {
-            case ObjectNames.StartDetection:
-                ProjectionExample.Instance.StartDetection();
+            return;
+        }
+
+        var activation = GetObject(obj.name);
+        ExecCommand(activation);
+    }
+
+    void ToggleToolbar(bool state)
+    {
+        var go = GameObject.FindGameObjectWithTag("MainToolBar");
+        go.GetComponentsInChildren<Renderer>().Where(c => c != null).ToList().ForEach(c => c.enabled = state);
+    }
+
+    public void ExecCommand(ObjectNames action)
+    {
+        switch (action)
+        {
+            case ObjectNames.HideToolbar:
+                ToggleToolbar(false);
+                break;
+
+            case ObjectNames.ShowToolbar:
+                ToggleToolbar(true);
                 break;
             case ObjectNames.RestoreScene:
                 ProjectionExample.Instance.RestoreScene();
@@ -42,6 +64,14 @@ public class CommandDispatcher : InteractionReceiver
                 break;
             default:
                 break;
+
         }
+    }
+
+    void ISpeechHandler.OnSpeechKeywordRecognized(SpeechEventData eventData)
+    {
+        var action = GetObject(eventData.RecognizedText);
+
+        ExecCommand(action);
     }
 }

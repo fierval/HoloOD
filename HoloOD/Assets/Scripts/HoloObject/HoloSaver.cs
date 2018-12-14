@@ -31,12 +31,27 @@ public class Holo
     public float[] projectionMatrix;
 
     [JsonIgnore]
-    public byte [] image;
+    public byte[] image;
 
     //Vector3 - position of the quad
     public float x;
     public float y;
     public float z;
+
+    // Rotation
+    public float qx;
+    public float qy;
+    public float qz;
+    public float qw;
+
+    // Resolution
+    public int width;
+    public int height;
+
+    // Camera Position
+    public float headX;
+    public float headY;
+    public float headZ;
 }
 
 public class HoloSaver : Singleton<HoloSaver>
@@ -44,12 +59,12 @@ public class HoloSaver : Singleton<HoloSaver>
 #if UNITY_WSA && !UNITY_EDITOR
     List<Rect> ConvertToWindowsRects(List<UnityEngine.Rect> predictedRects)
     {
-        return predictedRects.Select(r => new Rect { X = r.xMin, Y = r.yMin, Height = r.height, Width = r.width}).ToList();
+        return predictedRects.Select(r => new Rect { X = r.xMin, Y = r.yMin, Height = r.height, Width = r.width }).ToList();
     }
 
     List<UnityEngine.Rect> ConvertToUnityRects(List<Rect> rects)
     {
-        return rects.Select(r => new UnityEngine.Rect { xMin = (float) r.X, yMin = (float)r.Y, height = (float) r.Height, width = (float) r.Width }).ToList();
+        return rects.Select(r => new UnityEngine.Rect { xMin = (float)r.X, yMin = (float)r.Y, height = (float)r.Height, width = (float)r.Width }).ToList();
     }
 #endif
     public void SaveHologram(Holo holo, string path)
@@ -77,13 +92,23 @@ public class HoloSaver : Singleton<HoloSaver>
     {
         string imagePath = Path.ChangeExtension(path, ".jpg");
 
-        Holo holo = JsonConvert.DeserializeObject<Holo>(path);
-#if UNITY_WSA && !UNITY_EDITOR
-        holo.predictedRects = ConvertToUnityRects(holo.rects);
-#endif
-        holo.image = File.ReadAllBytes(imagePath);
+        try
+        {
+            var json = File.ReadAllText(path);
+            Holo holo = JsonConvert.DeserializeObject<Holo>(json);
+            holo.image = File.ReadAllBytes(imagePath);
 
-        return holo;
+#if UNITY_WSA && !UNITY_EDITOR
+            holo.predictedRects = ConvertToUnityRects(holo.rects);
+#endif
+            return holo;
+
+        }
+        catch (Exception e)
+        {
+            Debug.Log(e.Message);
+            throw;
+        }
     }
 }
 
