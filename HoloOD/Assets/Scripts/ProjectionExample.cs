@@ -43,6 +43,7 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     private bool processingFrame = false;
     private int captureNum;
 
+    private List<GameObject> pictureCollection = new List<GameObject>();
     // This struct store frame related data
     private class SampleStruct
     {
@@ -312,6 +313,8 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
         pictureRenderer.sharedMaterial.SetMatrix("_WorldToCameraMatrix", camera2WorldMatrix.inverse);
         pictureRenderer.sharedMaterial.SetMatrix("_CameraProjectionMatrix", projectionMatrix);
         pictureRenderer.sharedMaterial.SetFloat("_VignetteScale", 0f);
+
+        pictureCollection.Add(picture);
         return picture;
     }
 
@@ -372,6 +375,9 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     {
         var files = GetSceneFiles();
         files.ForEach(f => File.Delete(f));
+        pictureCollection.ForEach(p => p.SetActive(false));
+        pictureCollection.Clear();
+        captureNum = 0;
     }
 
     private GameObject RestoreHologram(string path)
