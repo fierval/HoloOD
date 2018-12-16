@@ -112,12 +112,12 @@ public class HoloPicture : TapToPlace
     public void RestoreHologram(string path)
     {
         var holo = HoloSaver.Instance.RestoreHologram(path);
-        var resolution = new HoloLensCameraStream.Resolution(holo.width, holo.height);
+        Resolution = new HoloLensCameraStream.Resolution(holo.width, holo.height);
 
         Vector3 position = new Vector3(holo.x, holo.y, holo.z);
         Quaternion rotation = new Quaternion(holo.qx, holo.qy, holo.qz, holo.qw);
 
-        ApplyCapture(holo.image, resolution, holo.cameraToWorldMatrix, holo.projectionMatrix);
+        ApplyCapture(holo.image, Resolution, holo.cameraToWorldMatrix, holo.projectionMatrix);
         transform.position = position;
         transform.rotation = rotation;
         
@@ -134,7 +134,5 @@ public class HoloPicture : TapToPlace
             });
 
         HeadPos = new Vector3(holo.headX, holo.headY, holo.headZ);
-        Resolution = resolution;
     }
-
 }
