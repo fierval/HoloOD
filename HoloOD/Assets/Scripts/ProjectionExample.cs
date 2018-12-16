@@ -199,16 +199,16 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
             if (!sample.TryGetCameraToWorldMatrix(out s.camera2WorldMatrix) || !sample.TryGetProjectionMatrix(out s.projectionMatrix))
                 return;
 
-            Matrix4x4 camera2WorldMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(s.camera2WorldMatrix);
-            Matrix4x4 projectionMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(s.projectionMatrix);
-
             //TODO: Do we need this fancy threading?
 
             UnityEngine.WSA.Application.InvokeOnAppThread(() =>
             {
-                picture = CreateHologram(s.data, _resolution, camera2WorldMatrix, projectionMatrix);
+                picture = CreateHologram(s.data, _resolution, s.camera2WorldMatrix, s.projectionMatrix);
 
             }, true);
+
+            Matrix4x4 camera2WorldMatrix = picture.camera2WorldMatrix;
+            Matrix4x4 projectionMatrix = picture.projectionMatrix;
 
             videoCapture.StopVideoModeAsync(onVideoModeStopped);
             IList<Yolo.YoloBoundingBox> predictions = null;
@@ -237,9 +237,11 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
 #endif
             UnityEngine.WSA.Application.InvokeOnAppThread(() =>
             {
-                SaveHologram(picture, s.camera2WorldMatrix, s.projectionMatrix, predictions);
+                picture.Predictions = predictions;
 
-                DisplayPredictions(camera2WorldMatrix, projectionMatrix, picture, predictions, _resolution, Camera.main.transform.position);
+                SaveHologram();
+
+                DisplayPredictions(picture);
             }, true);
 
         }
@@ -249,8 +251,15 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
         }
     }
 
-    private void DisplayPredictions(Matrix4x4 camera2WorldMatrix, Matrix4x4 projectionMatrix, HoloPicture picture, IList<YoloBoundingBox> predictions, HoloLensCameraStream.Resolution size, Vector3 headPos)
+    private void DisplayPredictions(HoloPicture picture)
     {
+        var camera2WorldMatrix = picture.camera2WorldMatrix;
+        var projectionMatrix = picture.projectionMatrix;
+
+        var predictions = picture.Predictions.ToList();
+        var size = picture.Resolution;
+        var headPos = picture.HeadPos;
+
         var shootingDirections = GetRectCentersInWorldCoordinates(camera2WorldMatrix, projectionMatrix, size, predictions);
 
         var lineRenderers = new List<LineRenderer>();
@@ -294,15 +303,11 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     /// <param name="data">Raw bytes of the image</param>
     /// <param name="camera2WorldMatrix">Camera -> World matrix</param>
     /// <param name="projectionMatrix"> Campera projection matrix</param>
-    private HoloPicture CreateHologram(byte[] data, HoloLensCameraStream.Resolution size, Matrix4x4 camera2WorldMatrix, Matrix4x4 projectionMatrix)
+    private HoloPicture CreateHologram(byte[] data, HoloLensCameraStream.Resolution size, float [] camera2WorldFloat, float [] projectionFloat)
     {
-        Vector3 inverseNormal = -camera2WorldMatrix.GetColumn(2);
+        picture = Instantiate(picture);
+        picture.ApplyCapture(data, size, camera2WorldFloat, projectionFloat, setPostion: true);
 
-        // Position the canvas object slightly in front of the real world web camera.
-        Vector3 position = camera2WorldMatrix.GetColumn(3) - camera2WorldMatrix.GetColumn(2);
-        var rotation = Quaternion.LookRotation(inverseNormal, camera2WorldMatrix.GetColumn(1));
-
-        picture = CreateHologram(data, size, camera2WorldMatrix, projectionMatrix, position, rotation);
         return picture;
     }
 
@@ -315,11 +320,11 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     /// <param name="position">Where to position</param>
     /// <param name="rotation">How to rotate</param>
     /// <returns></returns>
-    private HoloPicture CreateHologram(byte[] data, HoloLensCameraStream.Resolution size, 
-        Matrix4x4 camera2WorldMatrix, Matrix4x4 projectionMatrix, Vector3 position, Quaternion rotation)
+    private HoloPicture CreateHologram(byte[] data, HoloLensCameraStream.Resolution size,
+        float[] camera2WorldFloat, float[] projectionFloat, Vector3 position, Quaternion rotation)
     {
         picture = Instantiate(picture, position, rotation);
-        picture.ApplyCapture(data, size, camera2WorldMatrix, projectionMatrix);
+        picture.ApplyCapture(data, size, camera2WorldFloat, projectionFloat);
 
         return picture;
     }
@@ -327,40 +332,10 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     /// <summary>
     /// Serializes the current object with predictions
     /// </summary>
-    /// <param name="picture"></param>
     /// <param name="predictions"></param>
-    private void SaveHologram(HoloPicture picture, float[] camera2WorldMatrix, float[] projectionMatrix, IList<YoloBoundingBox> predictions)
+    private void SaveHologram()
     {
-        var camPos = Camera.main.transform.position;
-
-        var texture = picture.GetComponent<Renderer>().sharedMaterial.GetTexture("_MainTex") as Texture2D;
-        var holoObj = new Holo()
-        {
-            confidences = predictions.Select(p => p.Confidence).ToList(),
-            labels = predictions.Select(p => p.Label).ToList(),
-            predictedRects = predictions.Select(p => p.Rect).ToList(),
-            image = latestImageBytes,
-            cameraToWorldMatrix = camera2WorldMatrix,
-            projectionMatrix = projectionMatrix,
-            x = picture.transform.position.x,
-            y = picture.transform.position.y,
-            z = picture.transform.position.z,
-            qx = picture.transform.rotation.x,
-            qy = picture.transform.rotation.y,
-            qz = picture.transform.rotation.z,
-            qw = picture.transform.rotation.w,
-
-            width = _resolution.width,
-            height = _resolution.height,
-
-            headX = camPos.x,
-            headY = camPos.y,
-            headZ = camPos.z
-        };
-
-        string path = Path.Combine(Application.persistentDataPath, $"{FilePrefix}{captureNum++}.json");
-
-        HoloSaver.Instance.SaveHologram(holoObj, path);
+        picture.SaveHologram(captureNum++);
     }
 
     List<string> GetSceneFiles()
@@ -393,31 +368,11 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
 
     private HoloPicture RestoreHologram(string path)
     {
-        var holo = HoloSaver.Instance.RestoreHologram(path);
-        Matrix4x4 projectionMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(holo.projectionMatrix);
-        Matrix4x4 camera2WorldMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(holo.cameraToWorldMatrix);
-        var resolution = new HoloLensCameraStream.Resolution(holo.width, holo.height);
+        picture = Instantiate(picture);
 
-        Vector3 position = new Vector3(holo.x, holo.y, holo.z);
-        Quaternion rotation = new Quaternion(holo.qx, holo.qy, holo.qz, holo.qw);
+        picture.RestoreHologram(path);
 
-        // restore the picture
-        picture = CreateHologram(holo.image, resolution, camera2WorldMatrix, projectionMatrix, position, rotation);
-
-
-        var predictions =
-            Enumerable.Range(0, holo.predictedRects.Count)
-            .Select(i => new YoloBoundingBox()
-            {
-                Label = holo.labels[i],
-                Confidence = holo.confidences[i],
-                X = holo.predictedRects[i].xMin,
-                Y = holo.predictedRects[i].yMin,
-                Width = holo.predictedRects[i].width,
-                Height = holo.predictedRects[i].height,
-            });
-
-        DisplayPredictions(camera2WorldMatrix, projectionMatrix, picture, predictions.ToList(), resolution, new Vector3(holo.headX, holo.headY, holo.headZ));
+        DisplayPredictions(picture);
         return picture;
 
     }
