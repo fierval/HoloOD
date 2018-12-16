@@ -6,6 +6,7 @@ TagManager:
   tags:
   - DetectedObjects
   - MainToolBar
+  - Video Capture
   layers:
   - Default
   - TransparentFX
