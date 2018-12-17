@@ -338,9 +338,9 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
         picture.SaveHologram(captureNum++);
     }
 
-    List<string> GetSceneFiles()
+    IEnumerable<string> GetSceneFiles()
     {
-        return Directory.GetFiles(Application.persistentDataPath, $"{FilePrefix}*.*").ToList();
+        return Directory.GetFiles(Application.persistentDataPath, $"{FilePrefix}*.*");
     }
 
     public void RestoreScene()
@@ -354,7 +354,7 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     /// </summary>
     public void ForgetScene()
     {
-        var files = GetSceneFiles();
+        var files = GetSceneFiles().ToList();
         files.ForEach(f => File.Delete(f));
         pictureCollection.ForEach(p => {
             p.Item1.gameObject.SetActive(false);
