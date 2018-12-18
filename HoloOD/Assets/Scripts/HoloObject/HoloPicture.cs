@@ -7,7 +7,7 @@ using Yolo;
 using System.Linq;
 using System.IO;
 
-public class HoloPicture : TapToPlace
+public class HoloPicture : MonoBehaviour
 {
 
     public Matrix4x4 camera2WorldMatrix { get; private set; }
