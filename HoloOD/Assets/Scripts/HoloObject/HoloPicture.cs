@@ -32,7 +32,10 @@ public class HoloPicture : TapToPlace
         this.camera2WorldMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(camera2WorldFloat);
         this.projectionMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(projectionFloat);
 
-        var pictureRenderer = GetComponent<Renderer>();
+        // original scale is 0
+        gameObject.transform.localScale = Vector3.one;
+
+        var pictureRenderer = gameObject.GetComponent<Renderer>();
         pictureRenderer.material = new Material(Shader.Find("AR/HolographicImageBlend"));
         var pictureTexture = new Texture2D(size.width, size.height, TextureFormat.BGRA32, false);
 
@@ -65,8 +68,8 @@ public class HoloPicture : TapToPlace
         Vector3 position = camera2WorldMatrix.GetColumn(3) - camera2WorldMatrix.GetColumn(2);
         var rotation = Quaternion.LookRotation(inverseNormal, camera2WorldMatrix.GetColumn(1));
 
-        this.transform.position = position;
-        this.transform.rotation = rotation;
+        gameObject.transform.position = position;
+        gameObject.transform.rotation = rotation;
 
     }
 

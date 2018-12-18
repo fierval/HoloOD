@@ -35,7 +35,6 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     private bool stopVideo;
 
     GameObject Label;
-    public HoloPicture picture;
 
     private PropertyInfo videoFrameInfo;
 
@@ -57,7 +56,7 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
         base.Awake();
 
         videoFrameInfo = typeof(VideoCaptureSample).GetTypeInfo().DeclaredProperties.Where(x => x.Name == "videoFrame").Single();
-        captureNum = GetSceneFiles().Count / 2 + 1;
+        captureNum = GetSceneFiles().Count() / 2 + 1;
 
         // A tap in the air means start video capture
         InputManager.Instance.PushFallbackInputHandler(gameObject);
@@ -199,16 +198,13 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
             if (!sample.TryGetCameraToWorldMatrix(out s.camera2WorldMatrix) || !sample.TryGetProjectionMatrix(out s.projectionMatrix))
                 return;
 
-            //TODO: Do we need this fancy threading?
+            HoloPicture picture = null;
 
             UnityEngine.WSA.Application.InvokeOnAppThread(() =>
             {
                 picture = CreateHologram(s.data, _resolution, s.camera2WorldMatrix, s.projectionMatrix);
 
             }, true);
-
-            Matrix4x4 camera2WorldMatrix = picture.camera2WorldMatrix;
-            Matrix4x4 projectionMatrix = picture.projectionMatrix;
 
             videoCapture.StopVideoModeAsync(onVideoModeStopped);
             IList<Yolo.YoloBoundingBox> predictions = null;
@@ -239,7 +235,7 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
             {
                 picture.Predictions = predictions;
 
-                SaveHologram();
+                SaveHologram(picture);
 
                 DisplayPredictions(picture);
             }, true);
@@ -305,7 +301,9 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     /// <param name="projectionMatrix"> Campera projection matrix</param>
     private HoloPicture CreateHologram(byte[] data, HoloLensCameraStream.Resolution size, float [] camera2WorldFloat, float [] projectionFloat)
     {
-        picture = Instantiate(picture);
+        var pictureObj = GameObject.FindGameObjectWithTag(VideoCaptureTag).GetComponent<HoloPicture>();
+        var picture = Instantiate(pictureObj);
+
         picture.ApplyCapture(data, size, camera2WorldFloat, projectionFloat, setPostion: true);
 
         return picture;
@@ -323,7 +321,9 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     private HoloPicture CreateHologram(byte[] data, HoloLensCameraStream.Resolution size,
         float[] camera2WorldFloat, float[] projectionFloat, Vector3 position, Quaternion rotation)
     {
-        picture = Instantiate(picture, position, rotation);
+        var pictureObj = GameObject.FindGameObjectWithTag(VideoCaptureTag).GetComponent<HoloPicture>();
+
+        var picture = Instantiate(pictureObj, position, rotation);
         picture.ApplyCapture(data, size, camera2WorldFloat, projectionFloat);
 
         return picture;
@@ -333,7 +333,7 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     /// Serializes the current object with predictions
     /// </summary>
     /// <param name="predictions"></param>
-    private void SaveHologram()
+    private void SaveHologram(HoloPicture picture)
     {
         picture.SaveHologram(captureNum++);
     }
@@ -368,6 +368,10 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
 
     private HoloPicture RestoreHologram(string path)
     {
+        var pictureObj = GameObject.FindGameObjectWithTag(VideoCaptureTag).GetComponent<HoloPicture>();
+
+        var picture = Instantiate(pictureObj);
+
         picture = Instantiate(picture);
 
         picture.RestoreHologram(path);
