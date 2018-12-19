@@ -58,6 +58,9 @@ public class HoloPicture : MonoBehaviour
             SetPositionFromCamera();
         }
 
+        // time to enable tap-to-place
+        pictureRenderer.enabled = true;
+        gameObject.GetComponent<TapToPlace>().enabled = true;
     }
 
     void SetPositionFromCamera()
