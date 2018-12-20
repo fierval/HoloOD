@@ -6,17 +6,18 @@ using HoloToolkit.Unity.Receivers;
 using HoloToolkit.Unity.InputModule;
 using System;
 
-public enum ObjectNames : int
+public enum ActionCommands : int
 {
     HideToolbar = 0,
     ShowToolbar,
     RestoreScene,
-    ForgetScene
+    ForgetScene,
+    AnalyzeScene
 }
 
 public class CommandDispatcher : InteractionReceiver, ISpeechHandler
 {
-    ObjectNames GetObject(string objectName)
+    ActionCommands GetObject(string objectName)
     {
         int idxSpace = objectName.IndexOf(' ');
         string normalizedName = objectName;
@@ -25,7 +26,7 @@ public class CommandDispatcher : InteractionReceiver, ISpeechHandler
             normalizedName = objectName.Remove(idxSpace, 1);
         }
 
-        return (ObjectNames)Enum.Parse(typeof(ObjectNames), normalizedName);
+        return (ActionCommands)Enum.Parse(typeof(ActionCommands), normalizedName);
     }
 
     protected override void InputClicked(GameObject obj, InputClickedEventData eventData)
@@ -45,22 +46,25 @@ public class CommandDispatcher : InteractionReceiver, ISpeechHandler
         go.GetComponentsInChildren<Renderer>().Where(c => c != null).ToList().ForEach(c => c.enabled = state);
     }
 
-    public void ExecCommand(ObjectNames action)
+    public void ExecCommand(ActionCommands action)
     {
         switch (action)
         {
-            case ObjectNames.HideToolbar:
+            case ActionCommands.HideToolbar:
                 ToggleToolbar(false);
                 break;
 
-            case ObjectNames.ShowToolbar:
+            case ActionCommands.ShowToolbar:
                 ToggleToolbar(true);
                 break;
-            case ObjectNames.RestoreScene:
+            case ActionCommands.RestoreScene:
                 ProjectionExample.Instance.RestoreScene();
                 break;
-            case ObjectNames.ForgetScene:
+            case ActionCommands.ForgetScene:
                 ProjectionExample.Instance.ForgetScene();
+                break;
+            case ActionCommands.AnalyzeScene:
+                ProjectionExample.Instance.StartDetection();
                 break;
             default:
                 break;

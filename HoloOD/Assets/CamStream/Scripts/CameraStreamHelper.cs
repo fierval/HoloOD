@@ -35,13 +35,15 @@ public class CameraStreamHelper : MonoBehaviour
             Debug.LogError("You must supply the onVideoCaptureAvailable delegate.");
         }
 
-        if (videoCapture == null)
+        if (VideoCaptureCreated == null)
         {
             VideoCaptureCreated += onVideoCaptureAvailable;
         }
-        else
-        {
-            onVideoCaptureAvailable(videoCapture);
+
+        if (videoCapture == null)
+        {   // this will fire the onVideoCaptureAvailable
+            // once the video capture is created
+            CreateVideoCaptureInstance();
         }
     }
 
@@ -90,7 +92,6 @@ public class CameraStreamHelper : MonoBehaviour
         }
 
         instance = this;
-        VideoCapture.CreateAync(OnVideoCaptureInstanceCreated);
     }
 
     private void OnDestroy()
@@ -110,9 +111,17 @@ public class CameraStreamHelper : MonoBehaviour
         }
 
         CameraStreamHelper.videoCapture = videoCapture;
-        if (VideoCaptureCreated != null)
-        {
-            VideoCaptureCreated(videoCapture);
-        }
+        VideoCaptureCreated?.Invoke(videoCapture);
+    }
+
+    private void CreateVideoCaptureInstance()
+    {
+        VideoCapture.CreateAync(OnVideoCaptureInstanceCreated);
+    }
+
+    public void CloseVideoCapture()
+    {
+        videoCapture.Dispose();
+        videoCapture = null;
     }
 }

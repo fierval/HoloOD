@@ -23,7 +23,7 @@ using Windows.Graphics.Imaging;
 /// using the extrinsic parameters and projection matrices.
 /// Whereas the app is running, if you tap on the image, this set of points is reprojected into the world.
 /// </summary>
-public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandler
+public class ProjectionExample : Singleton<ProjectionExample>
 {
     object sync = new object();
     const string FilePrefix = "Holo";
@@ -32,7 +32,6 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     private VideoCapture videoCapture = null;
     private IntPtr spatialCoordinateSystemPtr;
     private byte[] latestImageBytes;
-    private bool stopVideo;
 
     GameObject Label;
 
@@ -63,15 +62,12 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     }
 
     /// <summary>
-    /// Start detection was clicked
+    /// Start detection was clicked.
+    /// This will create a new video capture every time
     /// </summary>
     public void StartDetection()
     {
-        if (videoCapture == null)
-        {
-            CameraStreamHelper.Instance.GetVideoCaptureAsync(OnVideoCaptureCreated);
-        }
-        StartCoroutine(StartOrStopVideoMode());
+        CameraStreamHelper.Instance.GetVideoCaptureAsync(OnVideoCaptureCreated);
     }
 
     void Start()
@@ -100,19 +96,6 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     }
 #endif
 
-    // This coroutine will toggle the video on/off
-    private IEnumerator StartOrStopVideoMode()
-    {
-        yield return new WaitForSeconds(0.65f);
-        stopVideo = !stopVideo;
-
-        if (!stopVideo)
-        {
-            processingFrame = false;
-            OnVideoCaptureCreated(videoCapture);
-        }
-    }
-
     protected override void OnDestroy()
     {
         if (videoCapture == null)
@@ -123,6 +106,7 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
         base.OnDestroy();
     }
 
+    // Cannot be called on multiple threads!
     private void OnVideoCaptureCreated(VideoCapture v)
     {
         if (v == null)
@@ -130,24 +114,23 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
             Debug.LogError("No VideoCapture found");
             return;
         }
-        if (videoCapture == null)
-        {
-            videoCapture = v;
 
-            //Request the spatial coordinate ptr if you want fetch the camera and set it if you need to 
-            CameraStreamHelper.Instance.SetNativeISpatialCoordinateSystemPtr(spatialCoordinateSystemPtr);
+        videoCapture = v;
+        processingFrame = false;
 
-            _resolution = CameraStreamHelper.Instance.GetLowestResolution();
-            float frameRate = CameraStreamHelper.Instance.GetHighestFrameRate(_resolution);
+        //Request the spatial coordinate ptr if you want fetch the camera and set it if you need to 
+        CameraStreamHelper.Instance.SetNativeISpatialCoordinateSystemPtr(spatialCoordinateSystemPtr);
 
-            videoCapture.FrameSampleAcquired += OnFrameSampleAcquired;
+        _resolution = CameraStreamHelper.Instance.GetLowestResolution();
+        float frameRate = CameraStreamHelper.Instance.GetHighestFrameRate(_resolution);
 
-            cameraParams = new CameraParameters();
-            cameraParams.cameraResolutionHeight = _resolution.height;
-            cameraParams.cameraResolutionWidth = _resolution.width;
-            cameraParams.frameRate = Mathf.RoundToInt(frameRate);
-            cameraParams.pixelFormat = CapturePixelFormat.BGRA32;
-        }
+        videoCapture.FrameSampleAcquired += OnFrameSampleAcquired;
+
+        cameraParams = new CameraParameters();
+        cameraParams.cameraResolutionHeight = _resolution.height;
+        cameraParams.cameraResolutionWidth = _resolution.width;
+        cameraParams.frameRate = Mathf.RoundToInt(frameRate);
+        cameraParams.pixelFormat = CapturePixelFormat.BGRA32;
 
         videoCapture.StartVideoModeAsync(cameraParams, OnVideoModeStarted);
     }
@@ -171,15 +154,12 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
     {
         lock (sync)
         {
-            if (!stopVideo || processingFrame)
+            if (processingFrame)
             {
                 return;
             }
 
-            if (!processingFrame)
-            {
-                processingFrame = true;
-            }
+            processingFrame = true;
         }
 
         // surrounded with try/finally because we need to dispose of the sample
@@ -403,11 +383,9 @@ public class ProjectionExample : Singleton<ProjectionExample>, IInputClickHandle
 
     private void onVideoModeStopped(VideoCaptureResult result)
     {
-        Debug.Log("Video Mode Stopped");
-    }
+        CameraStreamHelper.Instance.CloseVideoCapture();
+        videoCapture = null;
 
-    void IInputClickHandler.OnInputClicked(InputClickedEventData eventData)
-    {
-        StartDetection();
+        Debug.Log("Video Mode Stopped");
     }
 }
