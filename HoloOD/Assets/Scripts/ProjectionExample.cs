@@ -180,11 +180,30 @@ public class ProjectionExample : Singleton<ProjectionExample>
 
             HoloPicture picture = null;
 
+            Matrix4x4 prjMatrix = default(Matrix4x4);
+            Matrix4x4 cam2wrld = default(Matrix4x4);
+
             UnityEngine.WSA.Application.InvokeOnAppThread(() =>
             {
                 picture = CreateHologram(s.data, _resolution, s.camera2WorldMatrix, s.projectionMatrix);
 
+                cam2wrld = Camera.main.cameraToWorldMatrix;
+                prjMatrix = Camera.main.projectionMatrix;
+                if (prjMatrix == picture.projectionMatrix)
+                {
+                    Debug.Log("Projections match!");
+                }
+
+                if (cam2wrld.inverse == picture.camera2WorldMatrix)
+                {
+                    Debug.Log("Cameratoworld match");
+                }
+
+                Debug.Log("Finished createing hologram");
             }, true);
+
+
+            // TODO: Debug only: compare matrices
 
             videoCapture.StopVideoModeAsync(onVideoModeStopped);
             IList<Yolo.YoloBoundingBox> predictions = null;
