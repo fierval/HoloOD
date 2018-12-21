@@ -26,6 +26,7 @@ public class RaycastLaser : Singleton<RaycastLaser> {
             if (Physics.Raycast(ray, out hit, length))
             {
                 to = hit.point;
+                Debug.Log("Raycast hit for the laser!");
             }
         }
 

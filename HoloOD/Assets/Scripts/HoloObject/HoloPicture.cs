@@ -7,8 +7,9 @@ using Yolo;
 using System.Linq;
 using System.IO;
 using System;
+using HoloToolkit.Unity.InputModule;
 
-public class HoloPicture : MonoBehaviour
+public class HoloPicture : MonoBehaviour, IInputHandler
 {
     public Matrix4x4 camera2WorldMatrix { get; private set; }
     public Matrix4x4 projectionMatrix { get; private set; }
@@ -243,15 +244,22 @@ public class HoloPicture : MonoBehaviour
             RaycastHit objHitInfo;
 
             label.transform.position = direction;
+            var distance = 10f; /* Vector3.Distance(HeadPos, direction) */
 
-            if (Physics.Raycast(HeadPos, direction, out objHitInfo, 10.0f))
+            if (Physics.Raycast(HeadPos, direction, out objHitInfo, distance))
             {
                 label.transform.position = objHitInfo.point;
+                Debug.Log("Raycast hit for the label");
+            }
+            else
+            {
+                label.transform.position = HeadPos + distance * direction;
+                Debug.Log("Ray estimate hit for the label");
             }
 
             label.transform.rotation = Quaternion.LookRotation(-camera2WorldMatrix.GetColumn(2), camera2WorldMatrix.GetColumn(1));
 
-            var lr = laser.shootLaser(HeadPos, direction, 10.0f, confidence, ObjectDetector.Instance.DetectionThreshold);
+            var lr = laser.shootLaser(HeadPos, direction, distance, confidence, ObjectDetector.Instance.DetectionThreshold);
 
             lineRenderers.Add(lr);
             labels.Add(label);
