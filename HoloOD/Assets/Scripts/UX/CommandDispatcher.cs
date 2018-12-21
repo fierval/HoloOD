@@ -9,8 +9,7 @@ using HoloToolkit.Unity;
 
 public enum ActionCommands : int
 {
-    HideToolbar = 0,
-    ShowToolbar,
+    ToggleToolbar = 0,
     RestoreScene,
     ForgetScene,
     AnalyzeScene
@@ -64,8 +63,7 @@ public class CommandDispatcher : InteractionReceiver, ISpeechHandler
     {
         switch (action)
         {
-            case ActionCommands.HideToolbar:
-            case ActionCommands.ShowToolbar:
+            case ActionCommands.ToggleToolbar:
                 ToggleToolbar();
                 break;
             case ActionCommands.RestoreScene:

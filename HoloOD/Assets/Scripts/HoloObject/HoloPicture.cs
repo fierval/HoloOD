@@ -34,6 +34,20 @@ public class HoloPicture : MonoBehaviour
     GameObject Label;
     RaycastLaser laser;
 
+    // when we tap to place, StartPlacing() sets the raycast layer to "Ignore Raycast"
+    private int captureLayer;
+
+    /// <summary>
+    /// Is the object being placed now
+    /// </summary>
+    protected bool IsBeingPlaced
+    {
+        get
+        {
+            return gameObject.GetComponent<TapToPlaceWithCamera>().IsBeingPlaced;
+        }
+    }
+
     protected static HoloPicture CreateHologram(byte[] data, HoloLensCameraStream.Resolution size,
         float[] camera2WorldFloat, float[] projectionFloat, Tuple<Vector3, Quaternion> positionRotation)
     {
@@ -62,6 +76,7 @@ public class HoloPicture : MonoBehaviour
 
     void Start()
     {
+        captureLayer = 1 << LayerMask.NameToLayer("Ignore Raycast") | 1 << LayerMask.NameToLayer("Capture");
         laser = RaycastLaser.Instance;
         Label = GameObject.FindGameObjectWithTag("DetectedObjects");
         Predictions = new List<YoloBoundingBox>();
@@ -69,7 +84,7 @@ public class HoloPicture : MonoBehaviour
 
     void Update()
     {
-        if (!gameObject.GetComponent<TapToPlaceWithCamera>().IsBeingPlaced)
+        if (!IsBeingPlaced)
         {
             return;
         }
@@ -245,21 +260,16 @@ public class HoloPicture : MonoBehaviour
 
             label.transform.position = direction;
             var distance = 10f; /* Vector3.Distance(HeadPos, direction) */
-
-            if (Physics.Raycast(HeadPos, direction, out objHitInfo, distance))
+            
+            if (Physics.Raycast(HeadPos, direction, out objHitInfo, distance, captureLayer))
             {
                 label.transform.position = objHitInfo.point;
                 Debug.Log("Raycast hit for the label");
             }
-            else
-            {
-                label.transform.position = HeadPos + distance * direction;
-                Debug.Log("Ray estimate hit for the label");
-            }
 
-            label.transform.rotation = Quaternion.LookRotation(-camera2WorldMatrix.GetColumn(2), camera2WorldMatrix.GetColumn(1));
+            label.transform.rotation = gameObject.transform.rotation;
 
-            var lr = laser.shootLaser(HeadPos, direction, distance, confidence, ObjectDetector.Instance.DetectionThreshold);
+            var lr = laser.shootLaser(HeadPos, direction, distance, confidence, ObjectDetector.Instance.DetectionThreshold, captureLayer);
 
             lineRenderers.Add(lr);
             labels.Add(label);

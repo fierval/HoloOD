@@ -9,7 +9,7 @@ public class RaycastLaser : Singleton<RaycastLaser> {
     public Material [] _laserMaterials;
     public bool useRayCast = true;
 
-    public LineRenderer shootLaser(Vector3 from, Vector3 direction, float length, float confidence, float minDetection)
+    public LineRenderer shootLaser(Vector3 from, Vector3 direction, float length, float confidence, float minDetection, int layerMask)
     {
         LineRenderer lr = new GameObject().AddComponent<LineRenderer>(); lr.widthMultiplier = _lineWidthMultiplier;
         // Set Material
@@ -23,10 +23,9 @@ public class RaycastLaser : Singleton<RaycastLaser> {
         if (useRayCast)
         {
             RaycastHit hit;
-            if (Physics.Raycast(ray, out hit, length))
+            if (Physics.Raycast(ray, out hit, length, layerMask))
             {
                 to = hit.point;
-                Debug.Log("Raycast hit for the laser!");
             }
         }
 
