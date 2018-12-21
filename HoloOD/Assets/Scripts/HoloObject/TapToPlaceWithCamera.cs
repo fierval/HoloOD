@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using HoloToolkit.Unity;
 using HoloToolkit.Unity.SpatialMapping;
+using HoloToolkit.Unity.InputModule;
 
 public class TapToPlaceWithCamera : TapToPlace
 {
@@ -19,5 +20,4 @@ public class TapToPlaceWithCamera : TapToPlace
         renderer.sharedMaterial.SetMatrix("_WorldToCameraMatrix", Camera.main.cameraToWorldMatrix.inverse);
         renderer.sharedMaterial.SetMatrix("_CameraProjectionMatrix", Camera.main.projectionMatrix);
     }
-
 }

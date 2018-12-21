@@ -6,12 +6,17 @@ using HoloToolkit.Unity.SpatialMapping;
 using Yolo;
 using System.Linq;
 using System.IO;
+using System;
 
 public class HoloPicture : MonoBehaviour
 {
-
     public Matrix4x4 camera2WorldMatrix { get; private set; }
     public Matrix4x4 projectionMatrix { get; private set; }
+
+    // containers for rendered text and lasers
+    List<LineRenderer> lineRenderers = new List<LineRenderer>();
+    List<TextMesh> labels = new List<TextMesh>();
+
     float[] camera2WorldFloat;
     float[] projectionFloat;
     public IEnumerable<YoloBoundingBox> Predictions { get; set; }
@@ -22,18 +27,65 @@ public class HoloPicture : MonoBehaviour
 
     public HoloLensCameraStream.Resolution Resolution { get; private set; }
 
-    const string FilePrefix = "Holo";
+    public const string FilePrefix = "Holo";
+    private const string VideoCaptureTag = "Video Capture";
 
-    public void ApplyCapture(byte[] data, HoloLensCameraStream.Resolution size, float[] camera2WorldFloat, float[] projectionFloat, bool setPostion = false)
+    GameObject Label;
+    RaycastLaser laser;
+
+    protected static HoloPicture CreateHologram(byte[] data, HoloLensCameraStream.Resolution size,
+        float[] camera2WorldFloat, float[] projectionFloat, Tuple<Vector3, Quaternion> positionRotation)
+    {
+        var pos = positionRotation.Item1;
+        var rotation = positionRotation.Item2;
+
+        var picObj = GameObject.FindGameObjectWithTag(VideoCaptureTag).GetComponent<HoloPicture>();
+        var picture = Instantiate(picObj, pos, rotation);
+        picture.ApplyCapture(data, size, camera2WorldFloat, projectionFloat);
+
+        return picture;
+
+    }
+
+    /// <summary>
+    /// Creates a quad hologram to display image capture. Positions it in front of the camera
+    /// </summary>
+    /// <param name="data">Raw bytes of the image</param>
+    /// <param name="camera2WorldMatrix">Camera -> World matrix</param>
+    /// <param name="projectionMatrix"> Campera projection matrix</param>
+    public static HoloPicture CreateHologram(byte[] data, HoloLensCameraStream.Resolution size, float[] camera2WorldFloat, float[] projectionFloat)
+    {
+        var positionRotation = GetPositionFromCamera(camera2WorldFloat);
+        return CreateHologram(data, size, camera2WorldFloat, projectionFloat, positionRotation);
+    }
+
+    void Start()
+    {
+        laser = RaycastLaser.Instance;
+        Label = GameObject.FindGameObjectWithTag("DetectedObjects");
+        Predictions = new List<YoloBoundingBox>();
+    }
+
+    void Update()
+    {
+        if (!gameObject.GetComponent<TapToPlaceWithCamera>().IsBeingPlaced)
+        {
+            return;
+        }
+
+        camera2WorldMatrix = Camera.main.cameraToWorldMatrix;
+        projectionMatrix = Camera.main.projectionMatrix;
+        HeadPos = Camera.main.transform.position;
+        DisplayPredictions();
+    }
+
+    void ApplyCapture(byte[] data, HoloLensCameraStream.Resolution size, float[] camera2WorldFloat, float[] projectionFloat, bool setPostion = false)
     {
         this.camera2WorldFloat = camera2WorldFloat;
         this.projectionFloat = projectionFloat;
 
         this.camera2WorldMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(camera2WorldFloat);
         this.projectionMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(projectionFloat);
-
-        // original scale is 0
-        gameObject.transform.localScale = Vector3.one;
 
         var pictureRenderer = gameObject.GetComponent<Renderer>();
         pictureRenderer.material = new Material(Shader.Find("AR/HolographicImageBlend"));
@@ -53,27 +105,21 @@ public class HoloPicture : MonoBehaviour
         this.Resolution = new HoloLensCameraStream.Resolution(pictureTexture.width, pictureTexture.height);
         this.HeadPos = Camera.main.transform.position;
 
-        if (setPostion)
-        {
-            SetPositionFromCamera();
-        }
-
         // time to enable tap-to-place
         pictureRenderer.enabled = true;
-        gameObject.GetComponent<TapToPlace>().enabled = true;
     }
 
-    void SetPositionFromCamera()
+    static Tuple<Vector3, Quaternion> GetPositionFromCamera(float[] camera2WorldFloat)
     {
+        Matrix4x4 camera2WorldMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(camera2WorldFloat);
+
         Vector3 inverseNormal = -camera2WorldMatrix.GetColumn(2);
 
         // Position the canvas object slightly in front of the real world web camera.
         Vector3 position = camera2WorldMatrix.GetColumn(3) - camera2WorldMatrix.GetColumn(2);
         var rotation = Quaternion.LookRotation(inverseNormal, camera2WorldMatrix.GetColumn(1));
 
-        gameObject.transform.position = position;
-        gameObject.transform.rotation = rotation;
-
+        return new Tuple<Vector3, Quaternion>(position, rotation);
     }
 
     /// <summary>
@@ -85,7 +131,7 @@ public class HoloPicture : MonoBehaviour
     {
         var texture = GetComponent<Renderer>().sharedMaterial.GetTexture("_MainTex") as Texture2D;
         var imageBytes = texture.GetRawTextureData();
-        
+
         var holoObj = new Holo()
         {
             confidences = Predictions.Select(p => p.Confidence).ToList(),
@@ -115,19 +161,17 @@ public class HoloPicture : MonoBehaviour
         HoloSaver.Instance.SaveHologram(holoObj, path);
     }
 
-    public void RestoreHologram(string path)
+    public static HoloPicture RestoreHologram(string path)
     {
         var holo = HoloSaver.Instance.RestoreHologram(path);
-        Resolution = new HoloLensCameraStream.Resolution(holo.width, holo.height);
+        var resolution = new HoloLensCameraStream.Resolution(holo.width, holo.height);
 
         Vector3 position = new Vector3(holo.x, holo.y, holo.z);
         Quaternion rotation = new Quaternion(holo.qx, holo.qy, holo.qz, holo.qw);
 
-        ApplyCapture(holo.image, Resolution, holo.cameraToWorldMatrix, holo.projectionMatrix);
-        transform.position = position;
-        transform.rotation = rotation;
-        
-        Predictions =
+        var picture = CreateHologram(holo.image, resolution, holo.cameraToWorldMatrix, holo.projectionMatrix);
+
+        picture.Predictions =
             Enumerable.Range(0, holo.predictedRects.Count)
             .Select(i => new YoloBoundingBox()
             {
@@ -139,6 +183,78 @@ public class HoloPicture : MonoBehaviour
                 Height = holo.predictedRects[i].height,
             });
 
-        HeadPos = new Vector3(holo.headX, holo.headY, holo.headZ);
+        picture.HeadPos = new Vector3(holo.headX, holo.headY, holo.headZ);
+        return picture;
+    }
+
+    /// <summary>
+    /// Return a tuple of Label, Confidence, and point to shoot a ray in the world coordinate
+    /// Of a detection
+    /// </summary>
+    /// <param name="camera2WorldMatrix">Camera-to-world matrix</param>
+    /// <param name="projectionMatrix">Projection matrix</param>
+    /// <param name="predictions">List of predictions</param>
+    /// <returns></returns>
+    private IEnumerable<Tuple<string, float, Vector3>> GetRectCentersInWorldCoordinates()
+    {
+
+        foreach (var p in Predictions)
+        {
+            var centerX = p.X + p.Width / 2;
+            var centerY = p.Y + p.Height / 2;
+            var direction = LocatableCameraUtils.PixelCoordToWorldCoord(camera2WorldMatrix, projectionMatrix, Resolution, new Vector2(centerX, centerY));
+            yield return new Tuple<string, float, Vector3>(p.Label, p.Confidence, direction);
+        }
+    }
+
+    void DestroyPredictionVisuals()
+    {
+        lineRenderers.Zip(labels, (line, label) => new { line, label })
+            .ToList()
+            .ForEach(o =>
+            {
+                DestroyImmediate(o.label);
+                DestroyImmediate(o.line);
+            });
+
+        lineRenderers.Clear();
+        labels.Clear();
+    }
+
+    public void DisplayPredictions()
+    {
+        var shootingDirections = GetRectCentersInWorldCoordinates();
+
+        DestroyPredictionVisuals();
+
+        // position text
+        foreach (var labelConfidenceDirection in shootingDirections)
+        {
+            // decompose the tuple and get the goodies
+            string labelText = labelConfidenceDirection.Item1;
+            float confidence = labelConfidenceDirection.Item2;
+            Vector3 direction = labelConfidenceDirection.Item3;
+
+            // shoot the laser
+            var labelParent = Instantiate(Label);
+            var label = labelParent.GetComponent<TextMesh>();
+
+            label.text = $"{labelText}: {confidence: 0.00}";
+            RaycastHit objHitInfo;
+
+            label.transform.position = direction;
+
+            if (Physics.Raycast(HeadPos, direction, out objHitInfo, 10.0f))
+            {
+                label.transform.position = objHitInfo.point;
+            }
+
+            label.transform.rotation = Quaternion.LookRotation(-camera2WorldMatrix.GetColumn(2), camera2WorldMatrix.GetColumn(1));
+
+            var lr = laser.shootLaser(HeadPos, direction, 10.0f, confidence, ObjectDetector.Instance.DetectionThreshold);
+
+            lineRenderers.Add(lr);
+            labels.Add(label);
+        }
     }
 }
