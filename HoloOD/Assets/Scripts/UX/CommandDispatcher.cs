@@ -5,6 +5,7 @@ using UnityEngine;
 using HoloToolkit.Unity.Receivers;
 using HoloToolkit.Unity.InputModule;
 using System;
+using HoloToolkit.Unity;
 
 public enum ActionCommands : int
 {
@@ -17,6 +18,9 @@ public enum ActionCommands : int
 
 public class CommandDispatcher : InteractionReceiver, ISpeechHandler
 {
+    float toolbarMinDegrees = 180f;
+    float toolbarMaxDegrees = 180f;
+
     ActionCommands GetObject(string objectName)
     {
         int idxSpace = objectName.IndexOf(' ');
@@ -40,10 +44,20 @@ public class CommandDispatcher : InteractionReceiver, ISpeechHandler
         ExecCommand(activation);
     }
 
-    void ToggleToolbar(bool state)
+    void ToggleToolbar()
     {
         var go = GameObject.FindGameObjectWithTag("MainToolBar");
-        go.GetComponentsInChildren<Renderer>().Where(c => c != null).ToList().ForEach(c => c.enabled = state);
+        var solver = go.GetComponent<SolverRadialView>();
+
+        float temp = solver.MinViewDegrees;
+        solver.MinViewDegrees = toolbarMinDegrees;
+        toolbarMinDegrees = temp;
+
+        temp = solver.MaxDistance;
+        solver.MaxDistance = toolbarMaxDegrees;
+        toolbarMaxDegrees = temp;
+
+        solver.SolverUpdate();
     }
 
     public void ExecCommand(ActionCommands action)
@@ -51,11 +65,8 @@ public class CommandDispatcher : InteractionReceiver, ISpeechHandler
         switch (action)
         {
             case ActionCommands.HideToolbar:
-                ToggleToolbar(false);
-                break;
-
             case ActionCommands.ShowToolbar:
-                ToggleToolbar(true);
+                ToggleToolbar();
                 break;
             case ActionCommands.RestoreScene:
                 ProjectionExample.Instance.RestoreScene();
