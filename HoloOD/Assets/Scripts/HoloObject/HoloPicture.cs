@@ -9,7 +9,7 @@ using System.IO;
 using System;
 using HoloToolkit.Unity.InputModule;
 
-public class HoloPicture : MonoBehaviour, IInputHandler
+public class HoloPicture : MonoBehaviour
 {
     public Matrix4x4 camera2WorldMatrix { get; private set; }
     public Matrix4x4 projectionMatrix { get; private set; }
