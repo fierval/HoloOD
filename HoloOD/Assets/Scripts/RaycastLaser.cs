@@ -11,9 +11,7 @@ public class RaycastLaser : Singleton<RaycastLaser> {
 
     public LineRenderer shootLaser(Vector3 from, Vector3 direction, float length, float confidence, float minDetection, int layerMask)
     {
-        LineRenderer lr = new GameObject().AddComponent<LineRenderer>();
-        lr.widthMultiplier = _lineWidthMultiplier;
-
+        LineRenderer lr = new GameObject().AddComponent<LineRenderer>(); lr.widthMultiplier = _lineWidthMultiplier;
         // Set Material
         lr.material = GetLaserMaterial(confidence, minDetection);
         lr.positionCount = 2;

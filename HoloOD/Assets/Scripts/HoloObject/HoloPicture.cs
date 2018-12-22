@@ -16,6 +16,7 @@ public class HoloPicture : MonoBehaviour
 
     // containers for rendered text and lasers
     List<LineRenderer> lineRenderers = new List<LineRenderer>();
+    List<TextMesh> labels = new List<TextMesh>();
 
     float[] camera2WorldFloat;
     float[] projectionFloat;
@@ -91,7 +92,7 @@ public class HoloPicture : MonoBehaviour
         camera2WorldMatrix = Camera.main.cameraToWorldMatrix;
         projectionMatrix = Camera.main.projectionMatrix;
         HeadPos = Camera.main.transform.position;
-        DisplayPredictions(false);
+        DisplayPredictions();
     }
 
     void ApplyCapture(byte[] data, HoloLensCameraStream.Resolution size, float[] camera2WorldFloat, float[] projectionFloat, bool setPostion = false)
@@ -224,27 +225,22 @@ public class HoloPicture : MonoBehaviour
 
     void DestroyPredictionVisuals()
     {
-        lineRenderers
+        lineRenderers.Zip(labels, (line, label) => new { line, label })
             .ToList()
-            .ForEach(line => DestroyImmediate(line));
-            
+            .ForEach(o =>
+            {
+                DestroyImmediate(o.label);
+                DestroyImmediate(o.line);
+            });
+
         lineRenderers.Clear();
+        labels.Clear();
     }
 
-    /// <summary>
-    /// Displays predictions. 
-    /// TODO: Parameter "drawLabels" is because we can't deal with line rendereres 
-    /// the same way as with text: we need to redraw them on update 
-    /// (text is just added to the object children)
-    /// </summary>
-    /// <param name="drawLabels">Should text labels be drawn</param>
-    public void DisplayPredictions(bool drawLabels = true)
+    public void DisplayPredictions()
     {
         var shootingDirections = GetRectCentersInWorldCoordinates();
-        var distance = 10f; /* Vector3.Distance(HeadPos, direction) */
 
-        // TODO: will go away once line rendereres are good enough
-        // to be added to the object hierarchy
         DestroyPredictionVisuals();
 
         // position text
@@ -255,32 +251,28 @@ public class HoloPicture : MonoBehaviour
             float confidence = labelConfidenceDirection.Item2;
             Vector3 direction = labelConfidenceDirection.Item3;
 
-            if (drawLabels)
+            // shoot the laser
+            var labelParent = Instantiate(Label);
+            var label = labelParent.GetComponent<TextMesh>();
+
+            label.text = $"{labelText}: {confidence: 0.00}";
+            RaycastHit objHitInfo;
+
+            label.transform.position = direction;
+            var distance = 10f; /* Vector3.Distance(HeadPos, direction) */
+            
+            if (Physics.Raycast(HeadPos, direction, out objHitInfo, distance, captureLayer))
             {
-                // shoot the laser
-                var labelParent = Instantiate(Label);
-                var label = labelParent.GetComponent<TextMesh>();
-
-                label.text = $"{labelText}: {confidence: 0.00}";
-
-                RaycastHit objHitInfo;
-
-                label.transform.position = direction;
-
-
-                if (Physics.Raycast(HeadPos, direction, out objHitInfo, distance, captureLayer))
-                {
-                    label.transform.position = objHitInfo.point;
-                    Debug.Log("Raycast hit for the label");
-                }
-
-                label.transform.rotation = gameObject.transform.rotation;
-                labelParent.transform.parent = gameObject.transform;
+                label.transform.position = objHitInfo.point;
+                Debug.Log("Raycast hit for the label");
             }
 
-            var lr = laser.shootLaser(HeadPos, direction, distance, confidence, ObjectDetector.Instance.DetectionThreshold, captureLayer);
-            lineRenderers.Add(lr);
-        }
+            label.transform.rotation = gameObject.transform.rotation;
 
+            var lr = laser.shootLaser(HeadPos, direction, distance, confidence, ObjectDetector.Instance.DetectionThreshold, captureLayer);
+
+            lineRenderers.Add(lr);
+            labels.Add(label);
+        }
     }
 }
