@@ -159,7 +159,7 @@ MonoBehaviour:
   - {fileID: 444434512}
   Targets: []
   lockFocus: 0
---- !u!21 &83306558
+--- !u!21 &83391828
 Material:
   serializedVersion: 6
   m_ObjectHideFlags: 0
@@ -454,17 +454,17 @@ Prefab:
         type: 2}
       propertyPath: m_Materials.Array.data[0]
       value: 
-      objectReference: {fileID: 1048474622}
+      objectReference: {fileID: 1069191503}
     - target: {fileID: 23495921176317884, guid: 10d7a352d1d541049a5c2c2c14d7de0d,
         type: 2}
       propertyPath: m_Materials.Array.data[0]
       value: 
-      objectReference: {fileID: 1842537556}
+      objectReference: {fileID: 1726046889}
     - target: {fileID: 23516319381926554, guid: 10d7a352d1d541049a5c2c2c14d7de0d,
         type: 2}
       propertyPath: m_Materials.Array.data[0]
       value: 
-      objectReference: {fileID: 83306558}
+      objectReference: {fileID: 83391828}
     - target: {fileID: 33860534264943166, guid: 10d7a352d1d541049a5c2c2c14d7de0d,
         type: 2}
       propertyPath: m_Mesh
@@ -615,7 +615,7 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!21 &1048474622
+--- !u!21 &1069191503
 Material:
   serializedVersion: 6
   m_ObjectHideFlags: 0
@@ -928,7 +928,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 236b145532b9f61439d721482e625d20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  DetectionThreshold: 0.2
+  DetectionThreshold: 0.4
 --- !u!114 &1654794691
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -956,7 +956,7 @@ GameObject:
   m_PrefabParentObject: {fileID: 1448023656258624, guid: 10d7a352d1d541049a5c2c2c14d7de0d,
     type: 2}
   m_PrefabInternal: {fileID: 397820281}
---- !u!21 &1842537556
+--- !u!21 &1726046889
 Material:
   serializedVersion: 6
   m_ObjectHideFlags: 0

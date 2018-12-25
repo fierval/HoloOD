@@ -267,7 +267,7 @@ public class HoloPicture : MonoBehaviour
                 Debug.Log("Raycast hit for the label");
             }
 
-            label.transform.rotation = gameObject.transform.rotation;
+            label.transform.rotation = Quaternion.LookRotation(-camera2WorldMatrix.GetColumn(2), camera2WorldMatrix.GetColumn(1)); 
 
             var lr = laser.shootLaser(HeadPos, direction, distance, confidence, ObjectDetector.Instance.DetectionThreshold, captureLayer);
 
